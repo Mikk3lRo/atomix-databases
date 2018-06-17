@@ -1,0 +1,32 @@
+{
+    "name": "mikk3lro/atomix/{PACKAGE_NAME}",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Mikk3lRo",
+            "email": "mikk3lro@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4" : {
+            "Mikk3lRo\\atomix\\{PACKAGE_NAME}\\" : "src/"
+        },
+        "exclude-from-classmap": ["/tests/"]
+    },
+    "archive": {
+        "exclude": ["/tests/"]
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://mikk3lro.bitbucket.io/satis"
+        }
+    ],
+    "require": {
+        "mikk3lro/atomix/{REQUIRED_PACKAGE}": "~0.1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^6",
+        "squizlabs/php_codesniffer": "~3.3"
+    }
+}
