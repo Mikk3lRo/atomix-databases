@@ -1,5 +1,5 @@
 {
-    "name": "mikk3lro/atomix/{PACKAGE_NAME}",
+    "name": "mikk3lro/atomix/databases",
     "license": "proprietary",
     "authors": [
         {
@@ -9,7 +9,7 @@
     ],
     "autoload": {
         "psr-4" : {
-            "Mikk3lRo\\atomix\\{PACKAGE_NAME}\\" : "src/"
+            "Mikk3lRo\\atomix\\databases\\" : "src/"
         },
         "exclude-from-classmap": ["/tests/"]
     },
@@ -23,7 +23,8 @@
         }
     ],
     "require": {
-        "mikk3lro/atomix/{REQUIRED_PACKAGE}": "~0.1.0"
+        "mikk3lro/atomix/logger": "~0.2.0",
+        "mikk3lro/atomix/converters": "~0.0.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^6",
