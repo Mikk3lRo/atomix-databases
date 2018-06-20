@@ -1,7 +1,10 @@
 <?php
 namespace io;
 
-class DbHelpers {
+use Exception;
+
+class DbHelpers
+{
     /**
      * Takes a string or array and returns a table name with backticks.
      *
@@ -9,7 +12,7 @@ class DbHelpers {
      *
      * @return string The table name as a backticked string, ready for use in a statement.
      *
-     * @throws \Exception If the input is invalid.
+     * @throws Exception If the input is invalid.
      */
     public static function escapedTableName($table) : string
     {
@@ -23,7 +26,7 @@ class DbHelpers {
                 return '`' . $table[0] . '`.`' . $table[1] . '`';
             }
         }
-        throw new \Exception(Formatters::replaceTags('Invalid table name: {name}', $table));
+        throw new Exception(Formatters::replaceTags('Invalid table name: {name}', $table));
     }
 
 
@@ -64,12 +67,13 @@ class DbHelpers {
 
 
     /**
-     * Creates a string with fields to be updated ready to use in an update statement.
+     * Creates a string with fields and placeholders to be updated ready to use in an update statement.
      *
      * Fx. "`field1`=?, `field2`=?, `field3`=?"
      *
-     * @param type $fieldsAndValues
-     * @return string
+     * @param array $fieldsAndValues The values that will be used.
+     *
+     * @return string The escaped fields and placeholders.
      */
     public static function updateFieldsAndValues(array $fieldsAndValues) : string
     {

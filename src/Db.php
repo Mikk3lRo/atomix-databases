@@ -1,9 +1,11 @@
 <?php
-namespace Mikk3lRo\atomix\io;
+namespace Mikk3lRo\atomix\databases;
 
 use PDO;
 use PDOException;
-use Mikk3lRo\atomix\io\Dbs;
+use PDOStatement;
+use Exception;
+use Mikk3lRo\atomix\databases\Dbs;
 use Mikk3lRo\atomix\io\LogTrait;
 use Mikk3lRo\atomix\io\Formatters;
 
@@ -67,6 +69,7 @@ class Db
      */
     public $hostPort = 3306;
 
+
     /**
      * Instantiate a new database - very lightweight as no connection is made.
      *
@@ -87,25 +90,29 @@ class Db
         $this->hostPort = $hostPort;
     }
 
+
     /**
      * Get all queries up until this point - only useful during debugging!
      *
      * @return array[]
+     *
+     * @throws Exception If debugging is not enabled.
      */
     public function getQueryLog() : array
     {
         if (!Dbs::isDebugging()) {
-            throw new \Exception('Tried to get query log, but debugging is not enabled!');
+            throw new Exception('Tried to get query log, but debugging is not enabled!');
         }
         return $this->queryLog;
     }
+
 
     /**
      * Make the actual connection.
      *
      * @return void
      *
-     * @throws \Exception If the connection fails.
+     * @throws Exception If the connection fails.
      */
     public function connect() : void
     {
@@ -116,8 +123,8 @@ class Db
                 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                 $this->pdo = $pdo;
-            } catch(PDOException $e) {
-                throw new \Exception(Formatters::replaceTags('Failed to connect to database {name}: {message}', array(
+            } catch (PDOException $e) {
+                throw new Exception(Formatters::replaceTags('Failed to connect to database {name}: {message}', array(
                     'name' => $this->dbName,
                     'message' => $e->getMessage(),
                     'exception' => $e
@@ -126,21 +133,26 @@ class Db
         }
     }
 
+
     /**
      * Make a minimal effort to clean up :p
      */
-    public function __destruct() : void
+    public function __destruct()
     {
         $this->close();
     }
 
+
     /**
      * Try to avoid leaks by removing the reference to the PDO object.
+     *
+     * @return void
      */
     public function close() : void
     {
         $this->pdo = null;
     }
+
 
     /**
      * Run a query against the database.
@@ -176,7 +188,7 @@ class Db
         try {
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($args);
-        } catch(PDOException $e) {
+        } catch (PDOException $e) {
             //If connection was lost try to reconnect...
             $isDisconnect = in_array($e->errorInfo[1], array(2001, 2002, 2003, 2004, 2006));
             if ($isDisconnect && $maxReconnects > 0) {
@@ -228,30 +240,40 @@ class Db
     /**
      * Import a database dump.
      *
-     * @param string $file
+     * @param string $file The dump filename.
+     *
+     * @return void
+     *
+     * @throws Exception If the file does not exist or is empty.
      */
     public function import(string $file) : void
     {
         if (!file_exists($file) || filesize($file) == 0) {
-            throw new \Exception(Formatters::replaceTags("Import of {file} failed, file does not exist or is empty!"));
+            throw new Exception(Formatters::replaceTags("Import of {file} failed, file does not exist or is empty!"));
         }
         $cmd = 'mysql ' . $this->shellArgs() . ' < ' . escapeshellarg($file);
         `$cmd`;
     }
 
+
     /**
      * Export a database dump.
      *
-     * @param string $file
+     * @param string $file The dump filename.
+     *
+     * @return void
+     *
+     * @throws Exception If the file does not exist or is empty after exporting.
      */
     public function export(string $file) : void
     {
         $cmd = 'mysqldump ' . $this->shellArgs() . ' > ' . escapeshellarg($file);
         `$cmd`;
         if (!file_exists($file) || filesize($file) == 0) {
-            throw new \Exception(Formatters::replaceTags("Export to {file} failed, file does not exist or is empty!"));
+            throw new Exception(Formatters::replaceTags("Export to {file} failed, file does not exist or is empty!"));
         }
     }
+
 
     /**
      * Get the hosts / IPs a user is allowed to connect from.
@@ -262,18 +284,19 @@ class Db
      *
      * @return string[] An array of hostnames and / or IPs.
      */
-    public function getAllowedHostsForUser($username) : array
+    public function getAllowedHostsForUser(string $username) : array
     {
-        $stmt_find = $this->query("SELECT Host, User FROM mysql.user WHERE User=?", $username);
-        $allowed_hosts = array();
+        $stmtFind = $this->query("SELECT Host, User FROM mysql.user WHERE User=?", $username);
+        $allowedHosts = array();
 
-        if ($stmt_find->rowCount() > 0) {
-            foreach ($stmt_find as $user_row) {
-                $allowed_hosts[] = $user_row['Host'];
+        if ($stmtFind->rowCount() > 0) {
+            foreach ($stmtFind as $userRow) {
+                $allowedHosts[] = $userRow['Host'];
             }
         }
-        return $allowed_hosts;
+        return $allowedHosts;
     }
+
 
     /**
      * Create a new mysql user.
@@ -304,13 +327,14 @@ class Db
         }
     }
 
+
     /**
      * Update the password of a mysql user.
      *
      * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
      *
-     * @param string   $username     The username.
-     * @param string   $password     The new password.
+     * @param string $username The username.
+     * @param string $password The new password.
      *
      * @return void
      */
@@ -351,44 +375,51 @@ class Db
         }
     }
 
+
     /**
      * Grant a mysql user access to all databases - including access to create
      * and remove databases, users etc.
      *
      * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
      *
-     * @param string       $username    The username.
+     * @param string $username The username.
      *
      * @return void
      */
     public function grantSuperuserAccess(string $username) : void
     {
-        foreach ($this->getAllowedHostsForUser($username) as $allowed_host) {
+        foreach ($this->getAllowedHostsForUser($username) as $allowedHost) {
             $this->query("GRANT ALL PRIVILEGES ON *.* TO ?@? WITH GRANT OPTION", array(
                 $username,
-                $allowed_host
+                $allowedHost
             ));
         }
     }
+
 
     /**
      * Remove a database.
      *
      * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
      *
-     * @param string $name
+     * @param string $name Name of the database.
+     *
+     * @return void
      */
     public function dropDatabase(string $name) : void
     {
         $this->query('DROP DATABASE IF EXISTS `' . $name . '`');
     }
 
+
     /**
      * Create a new database.
      *
      * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
      *
-     * @param string $name
+     * @param string $name Name of the database.
+     *
+     * @return void
      */
     public function createDatabase(string $name) : void
     {

@@ -1,16 +1,18 @@
 <?php
-namespace Mikk3lRo\atomix\io;
+namespace Mikk3lRo\atomix\databases;
 
-use Mikk3lRo\atomix\io\Db;
+use Exception;
+use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\io\Formatters;
 
-class Dbs {
+class Dbs
+{
     /**
      * Array of registered databases
      *
      * @var Db[]
      */
-    static $dbs = array();
+    private static $dbs = array();
 
 
     /**
@@ -18,7 +20,7 @@ class Dbs {
      *
      * @param Db $db An instantiated Db - ie. register(new Db([...]));.
      *
-     * @return Db The new db-object is returned.
+     * @return void
      */
     public static function register(Db $db) : void
     {
@@ -29,20 +31,23 @@ class Dbs {
     /**
      * Get a Db object from its slug.
      *
-     * @param string $slug Slug of an already registered database
+     * @param string $slug Slug of an already registered database.
      *
-     * @return Db Returns a Db object
+     * @return Db Returns a Db object.
+     *
+     * @throws Exception If the slug is unknown.
      */
-    static function get(string $slug) : Db
+    public static function get(string $slug) : Db
     {
         if (is_string($slug) && isset(self::$dbs[$slug])) {
             return self::$dbs[$slug];
         }
 
-        throw new \Exception(Formatters::replaceTags('DB was not registered: {db}', array(
+        throw new Exception(Formatters::replaceTags('DB was not registered: {db}', array(
             'db' => $slug
         )));
     }
+
 
     /**
      * Get some very verbose database debug.
@@ -92,6 +97,7 @@ class Dbs {
         }
         return rtrim($sql, ';') . ';';
     }
+
 
     /**
      * Helper to check if debugging is enabled - to avoid wasting resources when
