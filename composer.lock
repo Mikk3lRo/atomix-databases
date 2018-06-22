@@ -8,11 +8,11 @@
     "packages": [
         {
             "name": "mikk3lro/atomix/converters",
-            "version": "0.0.19",
+            "version": "0.0.20",
             "source": {
                 "type": "git",
                 "url": "git@bitbucket.org:ozcoding/atomix_converters.git",
-                "reference": "54f0d3c13993cf3bcaefb33782b42390df8d97dd"
+                "reference": "14ccd1d9a453670cb5a39efc7e803b1f7390df53"
             },
             "archive": {
                 "exclude": [
@@ -44,7 +44,7 @@
                     "email": "mikk3lro@gmail.com"
                 }
             ],
-            "time": "2018-06-19T12:09:55+00:00"
+            "time": "2018-06-20T22:57:50+00:00"
         },
         {
             "name": "mikk3lro/atomix/i18n",

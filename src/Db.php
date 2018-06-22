@@ -14,6 +14,13 @@ class Db
     use LogTrait;
 
     /**
+     * Whether or not to store queries.
+     *
+     * @var boolean
+     */
+    private $logQueries = false;
+
+    /**
      * Keeps track of all executed queries - ONLY if DEBUG_SQL is defined and true!
      *
      * @var array[]
@@ -92,18 +99,69 @@ class Db
 
 
     /**
+     * Find out if logging of queries is currently on.
+     *
+     * @return boolean
+     */
+    public function isQueryLogEnabled() : bool
+    {
+        return $this->logQueries;
+    }
+
+
+    /**
+     * Enable logging of queries
+     *
+     * @return void
+     */
+    public function enableQueryLog() : void
+    {
+        $this->logQueries = true;
+    }
+
+
+    /**
+     * Disable logging of queries.
+     *
+     * @return void
+     */
+    public function disableQueryLog() : void
+    {
+        $this->logQueries = false;
+    }
+
+
+    /**
+     * Reset the query log.
+     *
+     * @return void
+     */
+    public function flushQueryLog() : void
+    {
+        $this->queryLog = array();
+    }
+
+
+    /**
      * Get all queries up until this point - only useful during debugging!
      *
-     * @return array[]
+     * @param boolean $flush   Also reset the query log.
+     * @param boolean $disable Also disable logging.
+     *
+     * @return array[] Returns an array of arrays.
      *
      * @throws Exception If debugging is not enabled.
      */
-    public function getQueryLog() : array
+    public function getQueryLog(bool $flush = true, bool $disable = true) : array
     {
-        if (!Dbs::isDebugging()) {
-            throw new Exception('Tried to get query log, but debugging is not enabled!');
+        $ql = $this->queryLog;
+        if ($flush) {
+            $this->flushQueryLog();
         }
-        return $this->queryLog;
+        if ($disable) {
+            $this->disableQueryLog();
+        }
+        return $ql;
     }
 
 
@@ -118,8 +176,8 @@ class Db
     {
         if ($this->pdo === null) {
             try {
-                $hostAndPort = $this->hostName . (($this->hostName == 'localhost') ? '' : ':' . $this->hostPort);
-                $pdo = new PDO('mysql:host=' . $hostAndPort . ';dbname=' . $this->dbName, $this->username, $this->password, array(PDO::ATTR_PERSISTENT => false));
+                $port = $this->hostName == 'localhost' ? '' : ';port=' . $this->hostPort;
+                $pdo = new PDO('mysql:host=' . $this->hostName . $port . ';dbname=' . $this->dbName, $this->username, $this->password, array(PDO::ATTR_PERSISTENT => false));
                 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                 $this->pdo = $pdo;
@@ -161,19 +219,33 @@ class Db
      * @param string|array $args          Values for the placeholders in the query - if there is only one placeholder the value can be passed directly.
      * @param integer      $maxReconnects Maximum reconnect attempts if connection was lost.
      *
-     * @return PDOstatement Returns the PDOstatement
+     * @return PDOStatement Returns the PDOStatement
      *
-     * @throws PDOException If maximum reconnect attempts is reached - or if another exception is thrown from PDO.
+     * @throws PDOException If exceptions other than connection fails are thrown by PDO.
+     * @throws Exception If connection fails.
      */
-    public function query(string $sql, $args = array(), int $maxReconnects = 1) : PDOstatement
+    public function query(string $sql, $args = array(), int $maxReconnects = 1) : PDOStatement
     {
-        $this->connect();
+        try {
+            $this->connect();
+        } catch (Exception $e) {
+            $this->log()->error(Formatters::replaceTags('Auto-connect in query() failed on {slug}: {message}', array(
+                'slug' => $this->dbName,
+                'message' => $e->getMessage(),
+                'exception' => $e
+            )));
+            throw $e;
+        }
 
         if (!is_array($args)) {
             $args = array($args);
+        } else {
+            //Make sure we have a numerically indexed array - if we want named
+            //parameters in the future that will have to be handled elsewhere...
+            $args = array_values($args);
         }
 
-        if (Dbs::isDebugging()) {
+        if ($this->logQueries) {
             $this->queryLog[] = array(
                 'sql' => $sql,
                 'args' => $args
@@ -194,7 +266,8 @@ class Db
             if ($isDisconnect && $maxReconnects > 0) {
                 $this->log()->warning(Formatters::replaceTags('Connection lost on {slug} (will attempt to reconnect): {message}', array(
                     'slug' => $this->dbName,
-                    'message' => $e->getMessage()
+                    'message' => $e->getMessage(),
+                    'exception' => $e
                 )));
                 $this->close();
                 return $this->query($sql, $args, $maxReconnects - 1);
@@ -204,6 +277,69 @@ class Db
         }
 
         return $stmt;
+    }
+
+
+    /**
+     * Get all matching rows. Returns an empty array if no rows are returned.
+     *
+     * Careful with huge data sets - memory may run out when the whole result
+     * set needs to be read into memory at once!
+     *
+     * Use query() directly if the query may result in large data sets!
+     *
+     * @param string       $sql           The query.
+     * @param string|array $args          Values for the placeholders in the query - if there is only one placeholder the value can be passed directly.
+     * @param integer      $maxReconnects Maximum reconnect attempts if connection was lost.
+     *
+     * @return array|null
+     */
+    public function queryAllRows(string $sql, $args = array(), int $maxReconnects = 1) : array
+    {
+        $stmt = $this->query($sql, $args, $maxReconnects);
+        return $stmt->fetchAll();
+    }
+
+
+    /**
+     * Get a single row. Returns null if no rows are returned.
+     *
+     * @param string       $sql           The query.
+     * @param string|array $args          Values for the placeholders in the query - if there is only one placeholder the value can be passed directly.
+     * @param integer      $maxReconnects Maximum reconnect attempts if connection was lost.
+     *
+     * @return array|null
+     */
+    public function queryOneRow(string $sql, $args = array(), int $maxReconnects = 1) : ?array
+    {
+        $retval = null;
+        $stmt = $this->query($sql, $args, $maxReconnects);
+        foreach ($stmt as $row) {
+            $retval = $row;
+        }
+        $stmt->closeCursor();
+        return $retval;
+    }
+
+
+    /**
+     * Get a single cell. Returns null if no rows are returned.
+     *
+     * @param string       $sql           The query.
+     * @param string|array $args          Values for the placeholders in the query - if there is only one placeholder the value can be passed directly.
+     * @param integer      $maxReconnects Maximum reconnect attempts if connection was lost.
+     *
+     * @return null|string
+     */
+    public function queryOneCell(string $sql, $args = array(), int $maxReconnects = 1) : ?string
+    {
+        $retval = null;
+        $stmt = $this->query($sql, $args, $maxReconnects);
+        foreach ($stmt as $row) {
+            $retval = reset($row);
+        }
+        $stmt->closeCursor();
+        return $retval;
     }
 
 
@@ -227,7 +363,9 @@ class Db
     {
         $args = array();
         $args[] = '-u' . escapeshellarg($this->username);
-        $args[] = '-p' . escapeshellarg($this->password);
+        if ($this->password !== '') {
+            $args[] = '-p' . escapeshellarg($this->password);
+        }
         $args[] = '-h' . escapeshellarg($this->hostName);
         if ($this->hostName !== 'localhost') {
             $args[] = '-P' . escapeshellarg($this->hostPort);
@@ -249,7 +387,9 @@ class Db
     public function import(string $file) : void
     {
         if (!file_exists($file) || filesize($file) == 0) {
-            throw new Exception(Formatters::replaceTags("Import of {file} failed, file does not exist or is empty!"));
+            throw new Exception(Formatters::replaceTags("Import of {file} failed, file does not exist or is empty!", array(
+                'file' => $file
+            )));
         }
         $cmd = 'mysql ' . $this->shellArgs() . ' < ' . escapeshellarg($file);
         `$cmd`;
@@ -267,162 +407,15 @@ class Db
      */
     public function export(string $file) : void
     {
-        $cmd = 'mysqldump ' . $this->shellArgs() . ' > ' . escapeshellarg($file);
+        $dumpArgs = '--routines --add-drop-table'; //TODO: optimal parameters here!!!
+        $cmd = 'mysqldump ' . $this->shellArgs() . ' ' . $dumpArgs . '> ' . escapeshellarg($file);
         `$cmd`;
+        // @codeCoverageIgnoreStart
         if (!file_exists($file) || filesize($file) == 0) {
-            throw new Exception(Formatters::replaceTags("Export to {file} failed, file does not exist or is empty!"));
+            throw new Exception(Formatters::replaceTags("Export to {file} failed, file does not exist or is empty!", array(
+                'file' => $file
+            )));
         }
-    }
-
-
-    /**
-     * Get the hosts / IPs a user is allowed to connect from.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
-     *
-     * @param string $username The username.
-     *
-     * @return string[] An array of hostnames and / or IPs.
-     */
-    public function getAllowedHostsForUser(string $username) : array
-    {
-        $stmtFind = $this->query("SELECT Host, User FROM mysql.user WHERE User=?", $username);
-        $allowedHosts = array();
-
-        if ($stmtFind->rowCount() > 0) {
-            foreach ($stmtFind as $userRow) {
-                $allowedHosts[] = $userRow['Host'];
-            }
-        }
-        return $allowedHosts;
-    }
-
-
-    /**
-     * Create a new mysql user.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
-     *
-     * @param string   $username     The username.
-     * @param string   $password     The password.
-     * @param string[] $allowedHosts An array of hostnames and / or IPs allowed to connect.
-     *
-     * @return void
-     */
-    public function createUser(string $username, string $password, array $allowedHosts = array('localhost', '127.0.0.1')) : void
-    {
-        foreach ($this->getAllowedHostsForUser($username) as $allowedHost) {
-            $this->query("DROP USER ?@?", array(
-                $username,
-                $allowedHost
-            ));
-        }
-
-        foreach ($allowedHosts as $allowedHost) {
-            $this->query("CREATE USER ?@? IDENTIFIED BY ?", array(
-                $username,
-                $allowedHost,
-                $password
-            ));
-        }
-    }
-
-
-    /**
-     * Update the password of a mysql user.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
-     *
-     * @param string $username The username.
-     * @param string $password The new password.
-     *
-     * @return void
-     */
-    public function setPassword(string $username, string $password) : void
-    {
-        foreach ($this->getAllowedHostsForUser($username) as $allowedHost) {
-            $this->query("SET PASSWORD FOR ?@? = PASSWORD(?)", array(
-                $username,
-                $allowedHost,
-                $password
-            ));
-        }
-    }
-
-
-    /**
-     * Grant a mysql user access to one or more databases using a pattern.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
-     *
-     * @param string          $username    The username.
-     * @param string          $dbnameMatch The database name pattern to match - fx.: "username_%".
-     * @param string|string[] $privileges  The privileges to grant in array or string form.
-     *
-     * @return void
-     */
-    public function grantAccessToDbs(string $username, string $dbnameMatch, $privileges = 'ALL PRIVILEGES') : void
-    {
-        if (is_array($privileges)) {
-            $privileges = implode(', ', $privileges);
-        }
-
-        foreach ($this->getAllowedHostsForUser($username) as $allowedHost) {
-            $this->query("GRANT " . $privileges . " ON $dbnameMatch.* TO ?@?", array(
-                $username,
-                $allowedHost
-            ));
-        }
-    }
-
-
-    /**
-     * Grant a mysql user access to all databases - including access to create
-     * and remove databases, users etc.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
-     *
-     * @param string $username The username.
-     *
-     * @return void
-     */
-    public function grantSuperuserAccess(string $username) : void
-    {
-        foreach ($this->getAllowedHostsForUser($username) as $allowedHost) {
-            $this->query("GRANT ALL PRIVILEGES ON *.* TO ?@? WITH GRANT OPTION", array(
-                $username,
-                $allowedHost
-            ));
-        }
-    }
-
-
-    /**
-     * Remove a database.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
-     *
-     * @param string $name Name of the database.
-     *
-     * @return void
-     */
-    public function dropDatabase(string $name) : void
-    {
-        $this->query('DROP DATABASE IF EXISTS `' . $name . '`');
-    }
-
-
-    /**
-     * Create a new database.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
-     *
-     * @param string $name Name of the database.
-     *
-     * @return void
-     */
-    public function createDatabase(string $name) : void
-    {
-        $this->query('CREATE DATABASE IF NOT EXISTS `' . $name . '`');
+        // @codeCoverageIgnoreEnd
     }
 }

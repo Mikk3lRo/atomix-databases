@@ -14,6 +14,13 @@ class Dbs
      */
     private static $dbs = array();
 
+    /**
+     * If true querylogging will be enabled when databases are registered.
+     *
+     * @var boolean
+     */
+    private static $debug = false;
+
 
     /**
      * Register a new database for easy access using its slug.
@@ -24,6 +31,11 @@ class Dbs
      */
     public static function register(Db $db) : void
     {
+        //Force query logging on when a new db is registered if debugging is
+        //enabled... but don't force it off if not!
+        if (self::$debug) {
+            $db->enableQueryLog();
+        }
         self::$dbs[$db->slug] = $db;
     }
 
@@ -50,11 +62,37 @@ class Dbs
 
 
     /**
+     * Enable logging of queries on all (currently registered) databases.
+     *
+     * @return void
+     */
+    public function enableQueryLog() : void
+    {
+        foreach (self::$dbs as $db) {
+            $db->enableQueryLog();
+        }
+        self::$debug = true;
+    }
+
+
+    /**
+     * Disable logging of queries on all (currently registered) databases.
+     *
+     * @return void
+     */
+    public function disableQueryLog() : void
+    {
+        foreach (self::$dbs as $db) {
+            $db->disableQueryLog();
+        }
+        self::$debug = false;
+    }
+
+
+    /**
      * Get some very verbose database debug.
      *
-     * Only works if DEBUG_SQL is defined and true!
-     *
-     * @return string All queries on all databases as a string.
+     * @return string All logged queries on all databases as a single string.
      */
     public static function getQueryDebug() : string
     {
@@ -72,9 +110,11 @@ class Dbs
 
     /**
      * Helper function to replace each placeholder in stored statements with the
-     * correct value. Should NEVER be used to actually run anything.
+     * correct value.
      *
      * This is ONLY FOR DEBUGGING PURPOSES!!!
+     *
+     * It should NEVER be used to actually run anything!!!
      *
      * @param string       $sql  The statement with placeholders.
      * @param string|array $args The values for the placeholders.
@@ -96,17 +136,5 @@ class Dbs
             }
         }
         return rtrim($sql, ';') . ';';
-    }
-
-
-    /**
-     * Helper to check if debugging is enabled - to avoid wasting resources when
-     * it is not.
-     *
-     * @return boolean
-     */
-    public static function isDebugging() : bool
-    {
-        return (defined('DEBUG_SQL') && DEBUG_SQL);
     }
 }

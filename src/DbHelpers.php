@@ -1,7 +1,8 @@
 <?php
-namespace io;
+namespace Mikk3lRo\atomix\databases;
 
 use Exception;
+use Mikk3lRo\atomix\io\Formatters;
 
 class DbHelpers
 {
@@ -22,11 +23,11 @@ class DbHelpers
         if (is_array($table)) {
             if (count($table) == 1) {
                 return '`' . $table[0] . '`';
-            } else {
+            } else if (count($table) == 2) {
                 return '`' . $table[0] . '`.`' . $table[1] . '`';
             }
         }
-        throw new Exception(Formatters::replaceTags('Invalid table name: {name}', $table));
+        throw new Exception(Formatters::replaceTags('Invalid table name: "{name}"', array('name' => $table)));
     }
 
 
