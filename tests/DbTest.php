@@ -124,6 +124,7 @@ final class DbTest extends TestCase
         if (getenv('BITBUCKET_REPO_SLUG')) {
             //Can't stop service in docker container :/
             $this->assertEquals(1, 1);
+            return;
         }
 
         global $outputLogger;
