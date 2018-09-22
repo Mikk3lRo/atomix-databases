@@ -1,5 +1,5 @@
 #Docker image from Docker Hub
-image: mikk3lro/centos-php
+image: mikk3lro/docker-phpunit-php7:7.2-new
 
 options:
   #Minutes:
