@@ -1,10 +1,22 @@
 <?php
 chdir(__DIR__);
+if (isset($argv[1]) && $argv[1] === 'coverage') {
+    `vendor/bin/phpunit --coverage-html=/var/www/html/ --whitelist src`;
+    exit();
+}
+
 //We can't test atomix_daemon, because systemd doesn't run in our docker test container :(
 if (!in_array(getenv('BITBUCKET_REPO_SLUG'), array('atomix_daemon'))) {
     echo "******** UNIT TESTS ********\n";
     succeed_or_die('chmod +x vendor/bin/phpunit vendor/phpunit/phpunit/phpunit');
-    succeed_or_die('vendor/bin/phpunit');
+
+    if (isset($argv[1])) {
+        if (file_exists('tests/' . $argv[1] . 'Test.php')) {
+            succeed_or_die('vendor/bin/phpunit tests/' . $argv[1] . 'Test.php');
+        }
+    } else {
+        succeed_or_die('vendor/bin/phpunit');
+    }
 }
 
 echo "******** CODE SNIFF ********\n";
