@@ -313,6 +313,6 @@ class DbAdmin
      */
     public function createDatabase(string $name) : void
     {
-        $this->db->query('CREATE DATABASE IF NOT EXISTS `' . $name . '`');
+        $this->db->query('CREATE DATABASE IF NOT EXISTS `' . $name . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
     }
 }
