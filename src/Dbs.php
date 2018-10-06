@@ -28,13 +28,18 @@ class Dbs
      * @param Db $db An instantiated Db - ie. register(new Db([...]));.
      *
      * @return void
+     *
+     * @throws Exception If there is already a database registered with the same slug.
      */
-    public static function register(Db $db) : void
+    public static function define(Db $db) : void
     {
         //Force query logging on when a new db is registered if debugging is
         //enabled... but don't force it off if not!
         if (self::$debug) {
             $db->enableQueryLog();
+        }
+        if (isset(self::$dbs[$db->slug])) {
+            throw new Exception(sprintf('Already have a database registered for the slug "%s"', $db->slug));
         }
         self::$dbs[$db->slug] = $db;
     }

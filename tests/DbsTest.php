@@ -17,7 +17,7 @@ final class DbsTest extends TestCase
 {
     public function testRegisterDatabase() {
         $dbIn = new Db('mysql', 'mysql', 'root', '');
-        Dbs::register($dbIn);
+        Dbs::define($dbIn);
         $dbOut = Dbs::get('mysql');
         $this->assertTrue($dbIn === $dbOut);
     }
@@ -26,7 +26,7 @@ final class DbsTest extends TestCase
 
         $db2 = new Db('mysql2', 'mysql', 'root', '');
         $this->assertFalse($db2->isQueryLogEnabled());
-        Dbs::register($db2);
+        Dbs::define($db2);
         $this->assertTrue($db2->isQueryLogEnabled());
         $this->assertTrue(Dbs::get('mysql2')->isQueryLogEnabled());
 
@@ -35,13 +35,18 @@ final class DbsTest extends TestCase
 
         $db3 = new Db('mysql3', 'mysql', 'root', '');
         $this->assertFalse($db3->isQueryLogEnabled());
-        Dbs::register($db3);
+        Dbs::define($db3);
         $this->assertFalse($db3->isQueryLogEnabled());
         $this->assertFalse(Dbs::get('mysql3')->isQueryLogEnabled());
     }
     public function testThrowsOnUnregisteredDatabase() {
         $this->expectExceptionMessage('was not registered');
         Dbs::get('This slug does not exist');
+    }
+    public function testThrowsOnReregisterDatabase() {
+        $this->expectExceptionMessage('Already have a database registered for the slug');
+        $db3 = new Db('mysql3', 'mysql', 'root', '');
+        Dbs::define($db3);
     }
 
     public function testEmulatedSql() {
