@@ -1,22 +1,25 @@
 <?php
 declare(strict_types=1);
 
+namespace Mikk3lRo\atomix\Tests;
+
 use PHPUnit\Framework\TestCase;
 
 use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\databases\Dbs;
-use Mikk3lRo\atomix\databases\DbAdmin;
 use Mikk3lRo\atomix\databases\DbHelpers;
 use Mikk3lRo\atomix\io\Formatters;
+use Mikk3lRo\atomix\io\Logger;
 
 putenv('isUnitTest=1');
 
-$outputLogger = new Mikk3lRo\atomix\io\Logger();
+$outputLogger = new Logger();
 $outputLogger->enableOutput();
 
 final class DbTest extends TestCase
 {
-    public function testCanConnectAndQuery() {
+    public function testCanConnectAndQuery()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -28,7 +31,10 @@ final class DbTest extends TestCase
 
         $this->assertEquals(array('abc' => '123'), $result);
     }
-    public function testQueryOneRow() {
+
+
+    public function testQueryOneRow()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -37,7 +43,10 @@ final class DbTest extends TestCase
 
         $this->assertEquals(array('abc' => '123'), $result);
     }
-    public function testQueryOneCell() {
+
+
+    public function testQueryOneCell()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -46,7 +55,10 @@ final class DbTest extends TestCase
 
         $this->assertEquals('123', $result);
     }
-    public function testCanConnectOnPort() {
+
+
+    public function testCanConnectOnPort()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '', '127.0.0.1', 3306);
         $db->setLogger($outputLogger);
@@ -59,7 +71,9 @@ final class DbTest extends TestCase
         $this->assertEquals(array('abc' => '123'), $result);
     }
 
-    public function testFailUser() {
+
+    public function testFailUser()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'invaliduser', 'invalidpass');
         $db->setLogger($outputLogger);
@@ -67,7 +81,9 @@ final class DbTest extends TestCase
         $db->connect();
     }
 
-    public function testFailConnect() {
+
+    public function testFailConnect()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'invaliduser', 'invalidpass', 'not.a.domain.that.is.valid');
         $db->setLogger($outputLogger);
@@ -75,7 +91,9 @@ final class DbTest extends TestCase
         $db->connect();
     }
 
-    public function testCanUseArgsArray() {
+
+    public function testCanUseArgsArray()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -87,7 +105,9 @@ final class DbTest extends TestCase
         $this->assertEquals(array('a' => '1', 'b' => 'two'), $result);
     }
 
-    public function testCanUseArgsString() {
+
+    public function testCanUseArgsString()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -99,7 +119,9 @@ final class DbTest extends TestCase
         $this->assertEquals(array('a' => 'three'), $result);
     }
 
-    public function testQueryLog() {
+
+    public function testQueryLog()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -110,9 +132,11 @@ final class DbTest extends TestCase
         $queryLog = $db->getQueryLog();
         $this->assertEquals(1, count($queryLog));
         $this->assertEquals("SELECT 'three' as `a`;", Dbs::getEmulatedSql($queryLog[0]['sql'], $queryLog[0]['args']));
-   }
+    }
 
-    public function testInvalidSQL() {
+
+    public function testInvalidSql()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -120,7 +144,9 @@ final class DbTest extends TestCase
         $db->query("this is not SQL", 'three');
     }
 
-    public function testLostConnection() {
+
+    public function testLostConnection()
+    {
         if (getenv('BITBUCKET_REPO_SLUG')) {
             //Can't stop service in docker container :/
             $this->assertEquals(1, 1);
@@ -144,7 +170,9 @@ final class DbTest extends TestCase
         `systemctl start mysql`;
     }
 
-    private function createTestDb() {
+
+    private function createTestDb()
+    {
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->query("CREATE DATABASE IF NOT EXISTS `phpunittesttestdb`");
         $db->query("CREATE TABLE IF NOT EXISTS " . DbHelpers::escapedTableName('phpunittesttestdb.phpunittesttesttable') . "
@@ -179,7 +207,9 @@ final class DbTest extends TestCase
         $db->query($sqlInsert, $insertRow);
     }
 
-    private function deleteTestDb() {
+
+    private function deleteTestDb()
+    {
         $db = new Db('mysql', 'mysql', 'root', '');
         foreach (array('localhost', '127.0.0.1') as $allowedHost) {
             $db->query("DROP USER ?@?", array(
@@ -190,7 +220,9 @@ final class DbTest extends TestCase
         $db->query("DROP DATABASE IF EXISTS `phpunittesttestdb`");
     }
 
-    public function testGetInsertId() {
+
+    public function testGetInsertId()
+    {
         $this->createTestDb();
         global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
@@ -219,7 +251,9 @@ final class DbTest extends TestCase
         $this->deleteTestDb();
     }
 
-    public function testExport() {
+
+    public function testExport()
+    {
         $this->createTestDb();
         global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
@@ -235,7 +269,9 @@ final class DbTest extends TestCase
         $this->deleteTestDb();
     }
 
-    public function testExportOnPort() {
+
+    public function testExportOnPort()
+    {
         $this->createTestDb();
         global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass', '127.0.0.1');
@@ -255,10 +291,12 @@ final class DbTest extends TestCase
         $this->deleteTestDb();
     }
 
+
     /**
      * @depends testExport
      */
-    public function testImport() {
+    public function testImport()
+    {
         $this->createTestDb();
         global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
@@ -277,10 +315,12 @@ final class DbTest extends TestCase
         $this->deleteTestDb();
     }
 
+
     /**
      * @depends testExport
      */
-    public function testThrowsOnImportInvalidFile() {
+    public function testThrowsOnImportInvalidFile()
+    {
         global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
         $db->setLogger($outputLogger);

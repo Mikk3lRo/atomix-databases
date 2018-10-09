@@ -1,27 +1,32 @@
 <?php
 declare(strict_types=1);
 
+namespace Mikk3lRo\atomix\Tests;
+
 use PHPUnit\Framework\TestCase;
 
 use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\databases\Dbs;
-use Mikk3lRo\atomix\databases\DbAdmin;
-use Mikk3lRo\atomix\databases\DbHelpers;
+use Mikk3lRo\atomix\io\Logger;
 
 putenv('isUnitTest=1');
 
-$outputLogger = new Mikk3lRo\atomix\io\Logger();
+$outputLogger = new Logger();
 $outputLogger->enableOutput();
 
 final class DbsTest extends TestCase
 {
-    public function testRegisterDatabase() {
+    public function testRegisterDatabase()
+    {
         $dbIn = new Db('mysql', 'mysql', 'root', '');
         Dbs::define($dbIn);
         $dbOut = Dbs::get('mysql');
         $this->assertTrue($dbIn === $dbOut);
     }
-    public function testTurnsQuerylogOnWhenRegisteringDatabase() {
+
+
+    public function testTurnsQuerylogOnWhenRegisteringDatabase()
+    {
         Dbs::enableQueryLog();
 
         $db2 = new Db('mysql2', 'mysql', 'root', '');
@@ -39,22 +44,32 @@ final class DbsTest extends TestCase
         $this->assertFalse($db3->isQueryLogEnabled());
         $this->assertFalse(Dbs::get('mysql3')->isQueryLogEnabled());
     }
-    public function testThrowsOnUnregisteredDatabase() {
+
+
+    public function testThrowsOnUnregisteredDatabase()
+    {
         $this->expectExceptionMessage('was not registered');
         Dbs::get('This slug does not exist');
     }
-    public function testThrowsOnReregisterDatabase() {
+
+
+    public function testThrowsOnReregisterDatabase()
+    {
         $this->expectExceptionMessage('Already have a database registered for the slug');
         $db3 = new Db('mysql3', 'mysql', 'root', '');
         Dbs::define($db3);
     }
 
-    public function testEmulatedSql() {
+
+    public function testEmulatedSql()
+    {
         $this->assertEquals(Dbs::getEmulatedSql('SELECT * FROM `test` WHERE ?', 'string'), "SELECT * FROM `test` WHERE 'string';");
         $this->assertEquals(Dbs::getEmulatedSql('SELECT * FROM `test` WHERE a=? AND b=?', array(1, 'string in array')), "SELECT * FROM `test` WHERE a=1 AND b='string in array';");
     }
 
-    public function testQueryDebug() {
+
+    public function testQueryDebug()
+    {
         Dbs::enableQueryLog();
         $this->assertEquals('123', Dbs::get('mysql')->queryOneCell('SELECT 123'));
         $debug = Dbs::getQueryDebug();

@@ -1,21 +1,24 @@
 <?php
 declare(strict_types=1);
 
+namespace Mikk3lRo\atomix\Tests;
+
 use PHPUnit\Framework\TestCase;
 
+use Exception;
 use Mikk3lRo\atomix\databases\Db;
-use Mikk3lRo\atomix\databases\Dbs;
 use Mikk3lRo\atomix\databases\DbAdmin;
-use Mikk3lRo\atomix\databases\DbHelpers;
+use Mikk3lRo\atomix\io\Logger;
 
 putenv('isUnitTest=1');
 
-$outputLogger = new Mikk3lRo\atomix\io\Logger();
+$outputLogger = new Logger();
 $outputLogger->enableOutput();
 
 final class DbAdminTest extends TestCase
 {
-    public function testCreateDatabase() {
+    public function testCreateDatabase()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -35,11 +38,12 @@ final class DbAdminTest extends TestCase
         $this->assertEquals(1, $postCount);
     }
 
+
     /**
      * @depends testCreateDatabase
      */
-
-    public function testCreateUser() {
+    public function testCreateUser()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -62,7 +66,8 @@ final class DbAdminTest extends TestCase
     /**
      * @depends testCreateUser
      */
-    public function testGrantUser() {
+    public function testGrantUser()
+    {
         global $outputLogger;
         //Still shouldn't have access to the database
         $exceptionMsgPre = '';
@@ -112,7 +117,8 @@ final class DbAdminTest extends TestCase
     /**
      * @depends testGrantUser
      */
-    public function testSetPassword() {
+    public function testSetPassword()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -149,10 +155,12 @@ final class DbAdminTest extends TestCase
         $dbAdmin->setPassword('phpunittesttestuser', 'phpunittesttestpass');
     }
 
+
     /**
      * @depends testSetPassword
      */
-    public function testRemoveAllowedHost() {
+    public function testRemoveAllowedHost()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -168,11 +176,13 @@ final class DbAdminTest extends TestCase
         $this->assertEquals(1, $postCount);
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
     }
+
 
     /**
      * @depends testRemoveAllowedHost
      */
-    public function testRemoveAllowedHostThatIsNotAllowed() {
+    public function testRemoveAllowedHostThatIsNotAllowed()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -189,10 +199,12 @@ final class DbAdminTest extends TestCase
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
     }
 
+
     /**
      * @depends testRemoveAllowedHostThatIsNotAllowed
      */
-    public function testAddAllowedHost() {
+    public function testAddAllowedHost()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -210,10 +222,12 @@ final class DbAdminTest extends TestCase
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
     }
 
+
     /**
      * @depends testAddAllowedHost
      */
-    public function testAddAllowedHostThatExists() {
+    public function testAddAllowedHostThatExists()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -235,7 +249,8 @@ final class DbAdminTest extends TestCase
     /**
      * @depends testAddAllowedHost
      */
-    public function testGrantSuperuserAccess() {
+    public function testGrantSuperuserAccess()
+    {
         global $outputLogger;
         //Shouldn't be able to create a database
         $exceptionMsgPre = '';
@@ -256,7 +271,7 @@ final class DbAdminTest extends TestCase
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
         $dbAdmin = new DbAdmin($db);
-        
+
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'localhost'")));
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
         $dbAdmin->grantSuperuserAccess('phpunittesttestuser');
@@ -285,7 +300,8 @@ final class DbAdminTest extends TestCase
     /**
      * @depends testAddAllowedHostThatExists
      */
-    public function testDropUser() {
+    public function testDropUser()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -301,10 +317,12 @@ final class DbAdminTest extends TestCase
         $this->assertEquals(0, $postCount);
     }
 
+
     /**
      * @depends testDropUser
      */
-    public function testDropDatabase() {
+    public function testDropDatabase()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -323,7 +341,8 @@ final class DbAdminTest extends TestCase
     }
 
 
-    public function testGetCreateThrowsOnNonexistingUser() {
+    public function testGetCreateThrowsOnNonexistingUser()
+    {
         global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->setLogger($outputLogger);
@@ -332,5 +351,4 @@ final class DbAdminTest extends TestCase
         $this->expectExceptionMessage('Could not get CREATE USER');
         $dbAdmin->getCreateStatementForUser('phpunittestnonexistentuser');
     }
-
 }

@@ -1,21 +1,23 @@
 <?php
 declare(strict_types=1);
 
+namespace Mikk3lRo\atomix\Tests;
+
 use PHPUnit\Framework\TestCase;
 
-use Mikk3lRo\atomix\databases\Db;
-use Mikk3lRo\atomix\databases\Dbs;
-use Mikk3lRo\atomix\databases\DbAdmin;
 use Mikk3lRo\atomix\databases\DbHelpers;
+
+use Mikk3lRo\atomix\io\Logger;
 
 putenv('isUnitTest=1');
 
-$outputLogger = new Mikk3lRo\atomix\io\Logger();
+$outputLogger = new Logger();
 $outputLogger->enableOutput();
 
 final class DbHelpersTest extends TestCase
 {
-    public function testEscapedTableName() {
+    public function testEscapedTableName()
+    {
         $this->assertEquals('?', DbHelpers::insertPlaceholders(array('value' => 'test')));
         $this->assertEquals('?, ?', DbHelpers::insertPlaceholders(array('key' => 1, 'value' => 'test')));
 
@@ -31,7 +33,9 @@ final class DbHelpersTest extends TestCase
         $this->assertEquals('`database`.`table`', DbHelpers::escapedTableName('database.table'));
     }
 
-    public function testThrowOnInvalidTableName() {
+
+    public function testThrowOnInvalidTableName()
+    {
         $this->expectExceptionMessage('Invalid table name');
         DbHelpers::escapedTableName(array('1', '2', '3'));
     }
