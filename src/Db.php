@@ -5,9 +5,7 @@ use PDO;
 use PDOException;
 use PDOStatement;
 use Exception;
-use Mikk3lRo\atomix\databases\Dbs;
 use Mikk3lRo\atomix\io\LogTrait;
-use Mikk3lRo\atomix\io\Formatters;
 
 class Db
 {
@@ -143,25 +141,46 @@ class Db
 
 
     /**
-     * Get all queries up until this point - only useful during debugging!
+     * Get all queries up until this point as an array.
      *
      * @param boolean $flush   Also reset the query log.
      * @param boolean $disable Also disable logging.
      *
      * @return array[] Returns an array of arrays.
-     *
-     * @throws Exception If debugging is not enabled.
      */
-    public function getQueryLog(bool $flush = true, bool $disable = true) : array
+    public function getQueryLogArray(bool $flush = true, bool $disable = true) : array
     {
-        $ql = $this->queryLog;
+        $queries = $this->queryLog;
+
         if ($flush) {
             $this->flushQueryLog();
         }
+
         if ($disable) {
             $this->disableQueryLog();
         }
-        return $ql;
+
+        return $queries;
+    }
+
+
+    /**
+     * Get all queries up until this point as a string.
+     *
+     * @param boolean $flush   Also reset the query log.
+     * @param boolean $disable Also disable logging.
+     *
+     * @return string Returns the queries (with parameters replaced).
+     */
+    public function getQueryLogString(bool $flush = true, bool $disable = true) : string
+    {
+        $retval = array();
+        $queries = $this->getQueryLogArray($flush, $disable);
+        $retval[] = sprintf('%d queries on "%s"', count($queries), $this->slug);
+        foreach ($queries as $query) {
+            $retval[] = '    ' . $this->getEmulatedSql($query['sql'], $query['args']);
+        }
+        return implode("\n", $retval);
     }
 
 
@@ -177,16 +196,37 @@ class Db
         if ($this->pdo === null) {
             try {
                 $port = $this->hostName == 'localhost' ? '' : ';port=' . $this->hostPort;
-                $pdo = new PDO('mysql:host=' . $this->hostName . $port . ';dbname=' . $this->dbName, $this->username, $this->password, array(PDO::ATTR_PERSISTENT => false));
+                $pdo = new PDO(
+                    'mysql:host=' . $this->hostName . $port . ';dbname=' . $this->dbName,
+                    $this->username,
+                    $this->password,
+                    array(
+                        PDO::ATTR_PERSISTENT => false
+                    )
+                );
                 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                 $this->pdo = $pdo;
             } catch (PDOException $e) {
-                throw new Exception(Formatters::replaceTags('Failed to connect to database {name}: {message}', array(
-                    'name' => $this->dbName,
-                    'message' => $e->getMessage(),
-                    'exception' => $e
-                )));
+                //Log full details...
+                $this->log()->critical(
+                    sprintf(
+                        'Failed to connect to database "%s": %s',
+                        $this->dbName,
+                        $e->getMessage()
+                    ),
+                    array(
+                        'exception' => $e
+                    )
+                );
+                //...but do not disclose too much information in the exception that might end up being displayed!
+                throw new Exception(
+                    sprintf(
+                        'Failed to connect to database "%s": %s',
+                        $this->dbName,
+                        'see log for details'
+                    )
+                );
             }
         }
     }
@@ -221,21 +261,11 @@ class Db
      *
      * @return PDOStatement Returns the PDOStatement
      *
-     * @throws PDOException If exceptions other than connection fails are thrown by PDO.
-     * @throws Exception If connection fails.
+     * @throws PDOException If exceptions other than autohandled connection failures are thrown by PDO.
      */
     public function query(string $sql, $args = array(), int $maxReconnects = 1) : PDOStatement
     {
-        try {
-            $this->connect();
-        } catch (Exception $e) {
-            $this->log()->error(Formatters::replaceTags('Auto-connect in query() failed on {slug}: {message}', array(
-                'slug' => $this->dbName,
-                'message' => $e->getMessage(),
-                'exception' => $e
-            )));
-            throw $e;
-        }
+        $this->connect();
 
         if (!is_array($args)) {
             $args = array($args);
@@ -251,10 +281,13 @@ class Db
                 'args' => $args
             );
 
-            $this->log()->debug(Formatters::replaceTags("SQL query on {slug}: {sql}", array(
-                $this->slug,
-                Dbs::getEmulatedSql($sql, $args)
-            )));
+            $this->log()->debug(
+                sprintf(
+                    'SQL query on "%s": %s',
+                    $this->slug,
+                    $this->getEmulatedSql($sql, $args)
+                )
+            );
         }
 
         try {
@@ -262,13 +295,28 @@ class Db
             $stmt->execute($args);
         } catch (PDOException $e) {
             //If connection was lost try to reconnect...
-            $isDisconnect = in_array($e->errorInfo[1], array(2001, 2002, 2003, 2004, 2006));
+            $isDisconnect = in_array(
+                $e->errorInfo[1],
+                array(
+                    2001,
+                    2002,
+                    2003,
+                    2004,
+                    2006
+                )
+            );
+
             if ($isDisconnect && $maxReconnects > 0) {
-                $this->log()->warning(Formatters::replaceTags('Connection lost on {slug} (will attempt to reconnect): {message}', array(
-                    'slug' => $this->dbName,
-                    'message' => $e->getMessage(),
-                    'exception' => $e
-                )));
+                $this->log()->warning(
+                    sprintf(
+                        'Connection lost on "%s" (will attempt to reconnect): %s',
+                        $this->dbName,
+                        $e->getMessage()
+                    ),
+                    array(
+                        'exception' => $e
+                    )
+                );
                 $this->close();
                 return $this->query($sql, $args, $maxReconnects - 1);
             }
@@ -387,9 +435,12 @@ class Db
     public function import(string $file) : void
     {
         if (!file_exists($file) || filesize($file) == 0) {
-            throw new Exception(Formatters::replaceTags("Import of {file} failed, file does not exist or is empty!", array(
-                'file' => $file
-            )));
+            throw new Exception(
+                sprintf(
+                    'Import of "%s" failed, file does not exist or is empty!',
+                    $file
+                )
+            );
         }
         $cmd = 'mysql ' . $this->shellArgs() . ' < ' . escapeshellarg($file);
         `$cmd`;
@@ -409,13 +460,99 @@ class Db
     {
         $dumpArgs = '--routines --add-drop-table'; //TODO: optimal parameters here!!!
         $cmd = 'mysqldump ' . $this->shellArgs() . ' ' . $dumpArgs . '> ' . escapeshellarg($file);
-        `$cmd`;
-        // @codeCoverageIgnoreStart
+        `$cmd 2>/dev/null`;
         if (!file_exists($file) || filesize($file) == 0) {
-            throw new Exception(Formatters::replaceTags("Export to {file} failed, file does not exist or is empty!", array(
-                'file' => $file
-            )));
+            throw new Exception(
+                sprintf(
+                    'Export to "%s" failed, file does not exist or is empty!',
+                    $file
+                )
+            );
         }
-        // @codeCoverageIgnoreEnd
+    }
+
+
+    /**
+     * Creates a string with one placeholder per element in the input array
+     * separated by commas.
+     *
+     * Fx. "?, ?, ?"
+     *
+     * @param array $fieldsAndValues The values that will be used.
+     *
+     * @return string The placeholder string.
+     */
+    public function insertPlaceholders(array $fieldsAndValues) : string
+    {
+        $placeholders = array_fill(0, count($fieldsAndValues), '?');
+        return implode(', ', $placeholders);
+    }
+
+
+    /**
+     * Creates a string with each field in backticks separated by commas.
+     *
+     * Fx. "`field1`, `field2`, `field3`"
+     *
+     * @param array $fieldsAndValues The values that will be used.
+     *
+     * @return string The escaped field list.
+     */
+    public function insertFields(array $fieldsAndValues) : string
+    {
+        $escapedFields = array();
+        foreach (array_keys($fieldsAndValues) as $field) {
+            $escapedFields[] = '`' . $field . '`';
+        }
+        return implode(', ', $escapedFields);
+    }
+
+
+    /**
+     * Creates a string with fields and placeholders to be updated ready to use in an update statement.
+     *
+     * Fx. "`field1`=?, `field2`=?, `field3`=?"
+     *
+     * @param array $fieldsAndValues The values that will be used.
+     *
+     * @return string The escaped fields and placeholders.
+     */
+    public function updateFieldsAndValues(array $fieldsAndValues) : string
+    {
+        $escapedFieldsAndPlaceholders = array();
+        foreach (array_keys($fieldsAndValues) as $field) {
+            $escapedFieldsAndPlaceholders[] = '`' . $field . '`=?';
+        }
+        return implode(', ', $escapedFieldsAndPlaceholders);
+    }
+
+
+    /**
+     * Replace each placeholder in stored statements with the correct value.
+     *
+     * This is ONLY FOR DEBUGGING PURPOSES!!!
+     *
+     * It should NEVER be used to actually run anything!!!
+     *
+     * @param string       $sql  The statement with placeholders.
+     * @param string|array $args The values for the placeholders.
+     *
+     * @return string The statement with placeholders replaced by values.
+     */
+    public function getEmulatedSql(string $sql, $args = array()) : string
+    {
+        if (!is_array($args)) {
+            $args = array($args);
+        }
+        foreach ($args as $arg) {
+            if (is_string($arg)) {
+                $arg = "'" . str_replace("'", "\\'", $arg) . "'";
+            }
+            $pos = strpos($sql, '?');
+            if ($pos !== false) {
+                $sql = substr_replace($sql, $arg, $pos, 1);
+            }
+        }
+        return rtrim($sql, ';') . ';';
     }
 }

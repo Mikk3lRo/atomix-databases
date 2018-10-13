@@ -3,8 +3,21 @@ namespace Mikk3lRo\atomix\databases;
 
 use Exception;
 use Mikk3lRo\atomix\databases\Db;
-use Mikk3lRo\atomix\io\Formatters;
 
+/**
+ * Use of this class is discouraged!
+ *
+ * It is extremely convenient in some cases, therefore it is kept...
+ *
+ * BUT the static nature of it goes against:
+ *
+ * - Global state (AVOID IT!)
+ * - Dependency injection (USE IT!)
+ *
+ * ...so if possible avoid this completely.
+ *
+ * Inject instantiated Db classes everywhere they are needed instead!
+ */
 class Dbs
 {
     /**
@@ -15,7 +28,7 @@ class Dbs
     private static $dbs = array();
 
     /**
-     * If true querylogging will be enabled when databases are registered.
+     * If true query logging will be enabled when databases are defined.
      *
      * @var boolean
      */
@@ -35,13 +48,18 @@ class Dbs
     {
         //Force query logging on when a new db is registered if debugging is
         //enabled... but don't force it off if not!
-        if (self::$debug) {
+        if (static::$debug) {
             $db->enableQueryLog();
         }
-        if (isset(self::$dbs[$db->slug])) {
-            throw new Exception(sprintf('Already have a database registered for the slug "%s"', $db->slug));
+        if (isset(static::$dbs[$db->slug])) {
+            throw new Exception(
+                sprintf(
+                    'Already have a database defined for the slug "%s"',
+                    $db->slug
+                )
+            );
         }
-        self::$dbs[$db->slug] = $db;
+        static::$dbs[$db->slug] = $db;
     }
 
 
@@ -56,13 +74,16 @@ class Dbs
      */
     public static function get(string $slug) : Db
     {
-        if (is_string($slug) && isset(self::$dbs[$slug])) {
-            return self::$dbs[$slug];
+        if (is_string($slug) && isset(static::$dbs[$slug])) {
+            return static::$dbs[$slug];
         }
 
-        throw new Exception(Formatters::replaceTags('DB was not registered: {db}', array(
-            'db' => $slug
-        )));
+        throw new Exception(
+            sprintf(
+                'DB was not registered: %s',
+                $slug
+            )
+        );
     }
 
 
@@ -71,12 +92,12 @@ class Dbs
      *
      * @return void
      */
-    public function enableQueryLog() : void
+    public static function enableQueryLog() : void
     {
-        foreach (self::$dbs as $db) {
+        foreach (static::$dbs as $db) {
             $db->enableQueryLog();
         }
-        self::$debug = true;
+        static::$debug = true;
     }
 
 
@@ -85,12 +106,12 @@ class Dbs
      *
      * @return void
      */
-    public function disableQueryLog() : void
+    public static function disableQueryLog() : void
     {
-        foreach (self::$dbs as $db) {
+        foreach (static::$dbs as $db) {
             $db->disableQueryLog();
         }
-        self::$debug = false;
+        static::$debug = false;
     }
 
 
@@ -102,44 +123,9 @@ class Dbs
     public static function getQueryDebug() : string
     {
         $retval = array();
-        foreach (self::$dbs as $dbSlug => $db) {
-            $queries = $db->getQueryLog();
-            $retval[] = count($queries) . ' queries on ' . $dbSlug;
-            foreach ($queries as $query) {
-                $retval[] = '    ' . self::getEmulatedSql($query['sql'], $query['args']);
-            }
+        foreach (static::$dbs as $db) {
+            $retval[] = $db->getQueryLogString();
         }
         return implode("\n", $retval);
-    }
-
-
-    /**
-     * Helper function to replace each placeholder in stored statements with the
-     * correct value.
-     *
-     * This is ONLY FOR DEBUGGING PURPOSES!!!
-     *
-     * It should NEVER be used to actually run anything!!!
-     *
-     * @param string       $sql  The statement with placeholders.
-     * @param string|array $args The values for the placeholders.
-     *
-     * @return string The statement with placeholders replaced by values.
-     */
-    public static function getEmulatedSql(string $sql, $args = array()) : string
-    {
-        if (!is_array($args)) {
-            $args = array($args);
-        }
-        foreach ($args as $arg) {
-            if (is_string($arg)) {
-                $arg = "'" . str_replace("'", "\\'", $arg) . "'";
-            }
-            $pos = strpos($sql, '?');
-            if ($pos !== false) {
-                $sql = substr_replace($sql, $arg, $pos, 1);
-            }
-        }
-        return rtrim($sql, ';') . ';';
     }
 }
