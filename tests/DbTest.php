@@ -6,23 +6,15 @@ namespace Mikk3lRo\atomix\Tests;
 use PHPUnit\Framework\TestCase;
 
 use Mikk3lRo\atomix\databases\Db;
-use Mikk3lRo\atomix\databases\Dbs;
-use Mikk3lRo\atomix\databases\DbHelpers;
-use Mikk3lRo\atomix\io\Formatters;
-use Mikk3lRo\atomix\io\Logger;
+use Mikk3lRo\atomix\io\OutputLogger;
 
 putenv('isUnitTest=1');
-
-$outputLogger = new Logger();
-$outputLogger->enableOutput();
 
 final class DbTest extends TestCase
 {
     public function testCanConnectAndQuery()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
         $db->connect();
 
         foreach ($db->query("SELECT '123' as `abc`") as $row) {
@@ -33,11 +25,23 @@ final class DbTest extends TestCase
     }
 
 
+    public function testQueryHelpers()
+    {
+        $db = new Db('', '', '', '');
+        $this->assertEquals('?', $db->insertPlaceholders(array('value' => 'test')));
+        $this->assertEquals('?, ?', $db->insertPlaceholders(array('key' => 1, 'value' => 'test')));
+
+        $this->assertEquals('`value`', $db->insertFields(array('value' => 'test')));
+        $this->assertEquals('`key`, `value`', $db->insertFields(array('key' => 1, 'value' => 'test')));
+
+        $this->assertEquals('`value`=?', $db->updateFieldsAndValues(array('value' => 'test')));
+        $this->assertEquals('`key`=?, `value`=?', $db->updateFieldsAndValues(array('key' => 1, 'value' => 'test')));
+    }
+
+
     public function testQueryOneRow()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
 
         $result = $db->queryOneRow("SELECT '123' as `abc`");
 
@@ -47,9 +51,7 @@ final class DbTest extends TestCase
 
     public function testQueryOneCell()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
 
         $result = $db->queryOneCell("SELECT '123' as `abc`");
 
@@ -59,9 +61,7 @@ final class DbTest extends TestCase
 
     public function testCanConnectOnPort()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '', '127.0.0.1', 3306);
-        $db->setLogger($outputLogger);
         $db->connect();
 
         foreach ($db->query("SELECT '123' as `abc`") as $row) {
@@ -74,29 +74,27 @@ final class DbTest extends TestCase
 
     public function testFailUser()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'invaliduser', 'invalidpass');
-        $db->setLogger($outputLogger);
-        $this->expectExceptionMessage('Access denied');
+        $db->setLogger(new OutputLogger);
+        $this->expectOutputRegex('#Access denied#');
+        $this->expectExceptionMessage('Failed to connect to database "mysql": see log for details');
         $db->connect();
     }
 
 
     public function testFailConnect()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'invaliduser', 'invalidpass', 'not.a.domain.that.is.valid');
-        $db->setLogger($outputLogger);
-        $this->expectExceptionMessage('server host');
+        $db->setLogger(new OutputLogger);
+        $this->expectOutputRegex('#Unknown MySQL server host#');
+        $this->expectExceptionMessage('Failed to connect to database "mysql": see log for details');
         $db->connect();
     }
 
 
     public function testCanUseArgsArray()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
 
         foreach ($db->query("SELECT ? as `a`, ? as `b`", array(1, 'two')) as $row) {
             $result = $row;
@@ -108,9 +106,7 @@ final class DbTest extends TestCase
 
     public function testCanUseArgsString()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
 
         foreach ($db->query("SELECT ? as `a`", 'three') as $row) {
             $result = $row;
@@ -122,24 +118,20 @@ final class DbTest extends TestCase
 
     public function testQueryLog()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
         $db->enableQueryLog();
 
-        $this->assertEquals(array(), $db->getQueryLog(false, false));
+        $this->assertEquals(array(), $db->getQueryLogArray(false, false));
         $db->query("SELECT ? as `a`", 'three');
-        $queryLog = $db->getQueryLog();
+        $queryLog = $db->getQueryLogArray();
         $this->assertEquals(1, count($queryLog));
-        $this->assertEquals("SELECT 'three' as `a`;", Dbs::getEmulatedSql($queryLog[0]['sql'], $queryLog[0]['args']));
+        $this->assertEquals("SELECT 'three' as `a`;", $db->getEmulatedSql($queryLog[0]['sql'], $queryLog[0]['args']));
     }
 
 
     public function testInvalidSql()
     {
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
         $this->expectExceptionMessage('You have an error in your SQL syntax');
         $db->query("this is not SQL", 'three');
     }
@@ -153,16 +145,15 @@ final class DbTest extends TestCase
             return;
         }
 
-        global $outputLogger;
         $db = new Db('mysql', 'mysql', 'root', '');
-        $db->setLogger($outputLogger);
+        $db->setLogger(new OutputLogger);
 
         $db->connect();
 
         `systemctl stop mysql`;
 
         try {
-            $this->expectOutputRegex("#Connection lost on mysql.*Auto-connect.*Failed to connect#s");
+            $this->expectOutputRegex("#Connection lost on .*will attempt to reconnect.*Failed to connect#s");
             $db->query("SELECT ? as `a`", 'three');
         } catch (\Exception $e) {
             $this->assertRegExp('#Failed to connect#', $e->getMessage());
@@ -175,7 +166,7 @@ final class DbTest extends TestCase
     {
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->query("CREATE DATABASE IF NOT EXISTS `phpunittesttestdb`");
-        $db->query("CREATE TABLE IF NOT EXISTS " . DbHelpers::escapedTableName('phpunittesttestdb.phpunittesttesttable') . "
+        $db->query("CREATE TABLE IF NOT EXISTS `phpunittesttestdb`.`phpunittesttesttable`
                       (
                         `key` INT NOT NULL AUTO_INCREMENT ,
                         `value` VARCHAR(1024) NOT NULL ,
@@ -199,11 +190,11 @@ final class DbTest extends TestCase
         $insertRow = array(
             'value' => 'First value'
         );
-        $sqlInsert = Formatters::replaceTags("INSERT INTO {table} ({fields}) VALUES ({placeholders})", array(
-            'table' => DbHelpers::escapedTableName('phpunittesttestdb.phpunittesttesttable'),
-            'fields' => DbHelpers::insertFields($insertRow),
-            'placeholders' => DbHelpers::insertPlaceholders($insertRow)
-        ));
+        $sqlInsert = sprintf(
+            "INSERT INTO `phpunittesttestdb`.`phpunittesttesttable` (%s) VALUES (%s)",
+            $db->insertFields($insertRow),
+            $db->insertPlaceholders($insertRow)
+        );
         $db->query($sqlInsert, $insertRow);
     }
 
@@ -224,24 +215,21 @@ final class DbTest extends TestCase
     public function testGetInsertId()
     {
         $this->createTestDb();
-        global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
-        $db->setLogger($outputLogger);
 
         $preCount = $db->queryOneCell("SELECT COUNT(*) FROM `phpunittesttesttable`");
 
         $insertRow = array(
             'value' => 'Second value'
         );
-        $sqlInsert = Formatters::replaceTags("INSERT INTO {table} ({fields}) VALUES ({placeholders})", array(
-            'table' => DbHelpers::escapedTableName('phpunittesttesttable'),
-            'fields' => DbHelpers::insertFields($insertRow),
-            'placeholders' => DbHelpers::insertPlaceholders($insertRow)
-        ));
+        $sqlInsert = sprintf(
+            "INSERT INTO `phpunittesttesttable` (%s) VALUES (%s)",
+            $db->insertFields($insertRow),
+            $db->insertPlaceholders($insertRow)
+        );
         $db->query($sqlInsert, $insertRow);
 
         $insertedCount = $db->queryOneCell("SELECT COUNT(*) FROM `phpunittesttesttable`");
-        $insertedCount2 = count($db->queryAllRows("SELECT * FROM `phpunittesttesttable`"));
         $insertedKey = $db->getInsertId();
 
         $this->assertEquals(1, $preCount);
@@ -255,9 +243,7 @@ final class DbTest extends TestCase
     public function testExport()
     {
         $this->createTestDb();
-        global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
-        $db->setLogger($outputLogger);
 
         if (file_exists('/tmp/phpunittestexport.sql')) {
             unlink('/tmp/phpunittestexport.sql');
@@ -270,12 +256,27 @@ final class DbTest extends TestCase
     }
 
 
+    public function testExportThrowsOnFailure()
+    {
+        $this->createTestDb();
+        $db = new Db('phpunittesttestdbfail', 'phpunittesttestdbfail', 'phpunittesttestuserfail', 'phpunittesttestpassfail');
+
+        if (file_exists('/tmp/phpunittestexportfail.sql')) {
+            unlink('/tmp/phpunittestexportfail.sql');
+        }
+
+        $this->expectExceptionMessage('Export to "/tmp/phpunittestexportfail.sql" failed, file does not exist or is empty!');
+
+        $db->export('/tmp/phpunittestexportfail.sql');
+
+        $this->deleteTestDb();
+    }
+
+
     public function testExportOnPort()
     {
         $this->createTestDb();
-        global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass', '127.0.0.1');
-        $db->setLogger($outputLogger);
 
         if (file_exists('/tmp/phpunittestexportfromport.sql')) {
             unlink('/tmp/phpunittestexportfromport.sql');
@@ -298,9 +299,7 @@ final class DbTest extends TestCase
     public function testImport()
     {
         $this->createTestDb();
-        global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
-        $db->setLogger($outputLogger);
 
         $db->query('DELETE FROM `phpunittesttesttable`');
 
@@ -316,14 +315,9 @@ final class DbTest extends TestCase
     }
 
 
-    /**
-     * @depends testExport
-     */
     public function testThrowsOnImportInvalidFile()
     {
-        global $outputLogger;
         $db = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
-        $db->setLogger($outputLogger);
 
         $this->expectExceptionMessage('file does not exist or is empty');
         $db->import('/tmp/nonexistingfilename.sql');

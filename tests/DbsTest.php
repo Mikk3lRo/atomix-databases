@@ -7,12 +7,9 @@ use PHPUnit\Framework\TestCase;
 
 use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\databases\Dbs;
-use Mikk3lRo\atomix\io\Logger;
+use Mikk3lRo\atomix\io\OutputLogger;
 
 putenv('isUnitTest=1');
-
-$outputLogger = new Logger();
-$outputLogger->enableOutput();
 
 final class DbsTest extends TestCase
 {
@@ -55,7 +52,7 @@ final class DbsTest extends TestCase
 
     public function testThrowsOnReregisterDatabase()
     {
-        $this->expectExceptionMessage('Already have a database registered for the slug');
+        $this->expectExceptionMessage('Already have a database defined for the slug');
         $db3 = new Db('mysql3', 'mysql', 'root', '');
         Dbs::define($db3);
     }
@@ -63,8 +60,8 @@ final class DbsTest extends TestCase
 
     public function testEmulatedSql()
     {
-        $this->assertEquals(Dbs::getEmulatedSql('SELECT * FROM `test` WHERE ?', 'string'), "SELECT * FROM `test` WHERE 'string';");
-        $this->assertEquals(Dbs::getEmulatedSql('SELECT * FROM `test` WHERE a=? AND b=?', array(1, 'string in array')), "SELECT * FROM `test` WHERE a=1 AND b='string in array';");
+        $this->assertEquals(Dbs::get('mysql')->getEmulatedSql('SELECT * FROM `test` WHERE ?', 'string'), "SELECT * FROM `test` WHERE 'string';");
+        $this->assertEquals(Dbs::get('mysql')->getEmulatedSql('SELECT * FROM `test` WHERE a=? AND b=?', array(1, 'string in array')), "SELECT * FROM `test` WHERE a=1 AND b='string in array';");
     }
 
 
@@ -74,6 +71,6 @@ final class DbsTest extends TestCase
         $this->assertEquals('123', Dbs::get('mysql')->queryOneCell('SELECT 123'));
         $debug = Dbs::getQueryDebug();
 
-        $this->assertRegExp("#1 queries on mysql\s+SELECT 123#s", $debug);
+        $this->assertRegExp('#1 queries on "mysql"\s+SELECT 123#s', $debug);
     }
 }

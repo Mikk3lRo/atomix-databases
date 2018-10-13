@@ -3,12 +3,11 @@ namespace Mikk3lRo\atomix\databases;
 
 use Exception;
 use Mikk3lRo\atomix\databases\Db;
-use Mikk3lRo\atomix\io\Formatters;
 
 class DbAdmin
 {
     /**
-     * The database to work on - normally a root-user connection to `mysql` on localhost.
+     * The database - normally a root-user connection to `mysql` on localhost.
      *
      * @var Db
      */
@@ -18,7 +17,7 @@ class DbAdmin
     /**
      * Instantiate.
      *
-     * @param Db $db The database to work on - normally a root-user connection to `mysql` on localhost.
+     * @param Db $db The database - normally a root-user connection to `mysql` on localhost.
      */
     public function __construct(Db $db)
     {
@@ -27,9 +26,7 @@ class DbAdmin
 
 
     /**
-     * Create a new mysql user.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
+     * Create a new user.
      *
      * @param string   $username     The username.
      * @param string   $password     The password.
@@ -52,9 +49,7 @@ class DbAdmin
 
 
     /**
-     * Remove a mysql user.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
+     * Remove a user.
      *
      * @param string $username The username.
      *
@@ -72,9 +67,7 @@ class DbAdmin
 
 
     /**
-     * Update the password of a mysql user.
-     *
-     * ONLY WORKS IF THE CONNECTION HAS ADMIN PRIVILEGES!
+     * Update the password of a user.
      *
      * @param string $username The username.
      * @param string $password The new password.
@@ -231,9 +224,12 @@ class DbAdmin
         }
 
         if (!isset($createUserSql)) {
-            throw new Exception(Formatters::replaceTags('Could not get CREATE USER statement to add allowed host. Perhaps the user {username} does not exist?!', array(
-                'username' => $username
-            )));
+            throw new Exception(
+                sprintf(
+                    'Could not get CREATE USER statement to add allowed host. Perhaps the user "%s" does not exist?!',
+                    $username
+                )
+            );
         }
 
         return $createUserSql;
