@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types = 1);
+
 namespace Mikk3lRo\atomix\databases;
 
 use PDO;
@@ -253,6 +254,18 @@ class Db
 
 
     /**
+     * Ensure that we have a connection and get the "raw" PDO object.
+     *
+     * @return PDO
+     */
+    public function getPdo() : PDO
+    {
+        $this->connect();
+        return $this->pdo;
+    }
+
+
+    /**
      * Run a query against the database.
      *
      * @param string       $sql           The query.
@@ -416,7 +429,7 @@ class Db
         }
         $args[] = '-h' . escapeshellarg($this->hostName);
         if ($this->hostName !== 'localhost') {
-            $args[] = '-P' . escapeshellarg($this->hostPort);
+            $args[] = '-P' . escapeshellarg((string)$this->hostPort);
         }
         $args[] = escapeshellarg($this->dbName);
         return implode(' ', $args);

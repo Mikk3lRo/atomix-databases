@@ -1,5 +1,4 @@
-<?php
-declare(strict_types=1);
+<?php declare(strict_types = 1);
 
 namespace Mikk3lRo\atomix\Tests;
 
@@ -10,6 +9,11 @@ use Mikk3lRo\atomix\io\OutputLogger;
 
 putenv('isUnitTest=1');
 
+/**
+ * @covers Mikk3lRo\atomix\databases\Db
+ *
+ * TODO: Individual cover tags!
+ */
 final class DbTest extends TestCase
 {
     public function testCanConnectAndQuery()
@@ -36,6 +40,16 @@ final class DbTest extends TestCase
 
         $this->assertEquals('`value`=?', $db->updateFieldsAndValues(array('value' => 'test')));
         $this->assertEquals('`key`=?, `value`=?', $db->updateFieldsAndValues(array('key' => 1, 'value' => 'test')));
+    }
+
+
+    public function testGetPdo()
+    {
+        $db = new Db('mysql', 'mysql', 'root', '');
+
+        $result = $db->getPdo();
+
+        $this->assertInstanceOf(\PDO::class, $result);
     }
 
 

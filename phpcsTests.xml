@@ -27,6 +27,17 @@
         </properties>
     </rule>
     
+    <!-- Enforce strict mode -->
+    <rule ref="vendor/slevomat/coding-standard/SlevomatCodingStandard/Sniffs/TypeHints/DeclareStrictTypesSniff.php">
+        <properties>
+            <property name="spacesCountAroundEqualsSign" value="1"/>
+        </properties>
+        <exclude name="SlevomatCodingStandard.TypeHints.DeclareStrictTypes.IncorrectWhitespaceAfterDeclare"/>
+    </rule>
+    
+    <!-- Enforce declaration of test coverage -->
+    <rule ref="vendor/mikk3lro/atomix/coding_standards/src/Sniffs/MissingCoversSniff.php" />
+    
     <!-- Require comments for functions and variables -->
     <!--rule ref="Squiz.Commenting.FunctionComment" /-->
     <!--rule ref="Squiz.Commenting.FunctionCommentThrowTag" /-->

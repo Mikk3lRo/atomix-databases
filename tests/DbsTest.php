@@ -1,5 +1,4 @@
-<?php
-declare(strict_types=1);
+<?php declare(strict_types = 1);
 
 namespace Mikk3lRo\atomix\Tests;
 
@@ -11,6 +10,12 @@ use Mikk3lRo\atomix\io\OutputLogger;
 
 putenv('isUnitTest=1');
 
+/**
+ * @covers Mikk3lRo\atomix\databases\Dbs
+ * @covers Mikk3lRo\atomix\databases\Db
+ *
+ * TODO: Individual cover tags!
+ */
 final class DbsTest extends TestCase
 {
     public function testRegisterDatabase()

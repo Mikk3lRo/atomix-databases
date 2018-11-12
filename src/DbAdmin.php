@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types = 1);
+
 namespace Mikk3lRo\atomix\databases;
 
 use Exception;

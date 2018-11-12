@@ -3,13 +3,18 @@ chdir(__DIR__);
 succeed_or_die('chmod +x vendor/bin/phpunit vendor/phpunit/phpunit/phpunit');
 succeed_or_die('chmod +x vendor/bin/phpcs vendor/squizlabs/php_codesniffer/bin/phpcs vendor/bin/phpcbf vendor/squizlabs/php_codesniffer/bin/phpcbf');
 
+//Fix reference to vendor folder for coding_standards package
+if (strpos(file_get_contents('composer.json'), '"name": "mikk3lro/atomix/coding_standards"') !== false) {
+    file_put_contents('phpcsTests.xml', str_replace('vendor/mikk3lro/atomix/coding_standards/', '', file_get_contents('phpcsTests.xml')));
+}
+
 if (isset($argv[1]) && $argv[1] === 'coverage') {
-    `vendor/bin/phpunit --coverage-html=/var/www/html/ --whitelist src`;
+    passthru('vendor/bin/phpunit --coverage-html=/var/www/html/ --whitelist src');
     exit();
 }
 
 if (isset($argv[1]) && $argv[1] === 'autofix') {
-    `vendor/bin/phpcbf -s --standard=phpcsTests.xml`;
+    passthru('vendor/bin/phpcbf -s --standard=phpcsTests.xml');
     exit();
 }
 
