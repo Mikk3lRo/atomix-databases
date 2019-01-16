@@ -75,6 +75,13 @@ class Db
      */
     public $hostPort = 3306;
 
+    /**
+     * Character set for the connection.
+     *
+     * @var string
+     */
+    public $charset = 'utf8';
+
 
     /**
      * Instantiate a new database - very lightweight as no connection is made.
@@ -85,8 +92,9 @@ class Db
      * @param string  $password The password.
      * @param string  $hostName The hostname of the database server.
      * @param integer $hostPort The port of the database server. Ignored for localhost.
+     * @param string  $charset  The character set to use.
      */
-    public function __construct(string $slug, string $dbName, string $username, string $password, string $hostName = 'localhost', int $hostPort = 3306)
+    public function __construct(string $slug, string $dbName, string $username, string $password, string $hostName = 'localhost', int $hostPort = 3306, string $charset = 'utf8')
     {
         $this->slug = $slug;
         $this->dbName = $dbName;
@@ -94,6 +102,7 @@ class Db
         $this->password = $password;
         $this->hostName = $hostName;
         $this->hostPort = $hostPort;
+        $this->charset = $charset;
     }
 
 
@@ -198,7 +207,7 @@ class Db
             try {
                 $port = $this->hostName == 'localhost' ? '' : ';port=' . $this->hostPort;
                 $pdo = new PDO(
-                    'mysql:host=' . $this->hostName . $port . ';dbname=' . $this->dbName,
+                    'mysql:host=' . $this->hostName . $port . ';dbname=' . $this->dbName . ';charset=' . $this->charset,
                     $this->username,
                     $this->password,
                     array(
