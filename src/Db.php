@@ -6,11 +6,12 @@ use PDO;
 use PDOException;
 use PDOStatement;
 use Exception;
-use Mikk3lRo\atomix\io\LogTrait;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 
-class Db
+class Db implements LoggerAwareInterface
 {
-    use LogTrait;
+    use LoggerAwareTrait;
 
     /**
      * Whether or not to store queries.
@@ -219,7 +220,7 @@ class Db
                 $this->pdo = $pdo;
             } catch (PDOException $e) {
                 //Log full details...
-                $this->log()->critical(
+                $this->logger && $this->logger->critical(
                     sprintf(
                         'Failed to connect to database "%s": %s',
                         $this->dbName,
@@ -303,7 +304,7 @@ class Db
                 'args' => $args
             );
 
-            $this->log()->debug(
+            $this->logger && $this->logger->debug(
                 sprintf(
                     'SQL query on "%s": %s',
                     $this->slug,
@@ -329,7 +330,7 @@ class Db
             );
 
             if ($isDisconnect && $maxReconnects > 0) {
-                $this->log()->warning(
+                $this->logger && $this->logger->warning(
                     sprintf(
                         'Connection lost on "%s" (will attempt to reconnect): %s',
                         $this->dbName,

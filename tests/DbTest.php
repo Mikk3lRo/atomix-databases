@@ -143,6 +143,19 @@ final class DbTest extends TestCase
     }
 
 
+    public function testCanLogQuery()
+    {
+        $db = new Db('mysql', 'mysql', 'root', '');
+        $db->enableQueryLog();
+        $logger = new OutputLogger();
+        $logger->setMaxLogLevel(\Psr\Log\LogLevel::DEBUG);
+        $db->setLogger($logger);
+
+        $this->expectOutputRegex('#SELECT \'three\' as `a`#');
+        $db->query("SELECT ? as `a`", 'three');
+    }
+
+
     public function testInvalidSql()
     {
         $db = new Db('mysql', 'mysql', 'root', '');
