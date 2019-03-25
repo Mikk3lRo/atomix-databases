@@ -2,10 +2,14 @@
 
 namespace Mikk3lRo\atomix\Tests;
 
-use PHPUnit\Framework\TestCase;
-
+use Exception;
 use Mikk3lRo\atomix\databases\Db;
+use Mikk3lRo\atomix\databases\DbHelpers;
 use Mikk3lRo\atomix\io\OutputLogger;
+use PDO;
+use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
+use function count;
 
 putenv('isUnitTest=1');
 
@@ -29,31 +33,13 @@ final class DbTest extends TestCase
     }
 
 
-    public function testQueryHelpers()
-    {
-        $db = new Db('', '', '', '');
-        $this->assertEquals('?', $db->insertPlaceholders(array('value' => 'test')));
-        $this->assertEquals('?, ?', $db->insertPlaceholders(array('key' => 1, 'value' => 'test')));
-
-        $this->assertEquals('`value`', $db->insertFields(array('value' => 'test')));
-        $this->assertEquals('`key`, `value`', $db->insertFields(array('key' => 1, 'value' => 'test')));
-
-        $this->assertEquals('`value`=?', $db->updateFieldsAndValues(array('value' => 'test')));
-        $this->assertEquals('`key`=?, `value`=?', $db->updateFieldsAndValues(array('key' => 1, 'value' => 'test')));
-
-        $this->assertEquals('`value`=VALUES(`value`)', $db->onDuplicateUpdateFields(array('value' => 'test')));
-        $this->assertEquals('`key`=VALUES(`key`), `value`=VALUES(`value`)', $db->onDuplicateUpdateFields(array('key' => 1, 'value' => 'test')));
-        $this->assertEquals('`value`=VALUES(`value`)', $db->onDuplicateUpdateFields(array('key' => 1, 'value' => 'test'), 'key'));
-    }
-
-
     public function testGetPdo()
     {
         $db = new Db('mysql', 'mysql', 'root', '');
 
         $result = $db->getPdo();
 
-        $this->assertInstanceOf(\PDO::class, $result);
+        $this->assertInstanceOf(PDO::class, $result);
     }
 
 
@@ -143,7 +129,7 @@ final class DbTest extends TestCase
         $db->query("SELECT ? as `a`", 'three');
         $queryLog = $db->getQueryLogArray();
         $this->assertEquals(1, count($queryLog));
-        $this->assertEquals("SELECT 'three' as `a`;", $db->getEmulatedSql($queryLog[0]['sql'], $queryLog[0]['args']));
+        $this->assertEquals("SELECT 'three' as `a`;", DbHelpers::getEmulatedSql($queryLog[0]['sql'], $queryLog[0]['args']));
     }
 
 
@@ -152,7 +138,7 @@ final class DbTest extends TestCase
         $db = new Db('mysql', 'mysql', 'root', '');
         $db->enableQueryLog();
         $logger = new OutputLogger();
-        $logger->setMaxLogLevel(\Psr\Log\LogLevel::DEBUG);
+        $logger->setMaxLogLevel(LogLevel::DEBUG);
         $db->setLogger($logger);
 
         $this->expectOutputRegex('#SELECT \'three\' as `a`#');
@@ -186,7 +172,7 @@ final class DbTest extends TestCase
         try {
             $this->expectOutputRegex("#Connection lost on .*will attempt to reconnect.*Failed to connect#s");
             $db->query("SELECT ? as `a`", 'three');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->assertRegExp('#Failed to connect#', $e->getMessage());
         }
         `systemctl start mysql`;
@@ -223,8 +209,8 @@ final class DbTest extends TestCase
         );
         $sqlInsert = sprintf(
             "INSERT INTO `phpunittesttestdb`.`phpunittesttesttable` (%s) VALUES (%s)",
-            $db->insertFields($insertRow),
-            $db->insertPlaceholders($insertRow)
+            DbHelpers::insertFields($insertRow),
+            DbHelpers::insertPlaceholders($insertRow)
         );
         $db->query($sqlInsert, $insertRow);
     }
@@ -255,8 +241,8 @@ final class DbTest extends TestCase
         );
         $sqlInsert = sprintf(
             "INSERT INTO `phpunittesttesttable` (%s) VALUES (%s)",
-            $db->insertFields($insertRow),
-            $db->insertPlaceholders($insertRow)
+            DbHelpers::insertFields($insertRow),
+            DbHelpers::insertPlaceholders($insertRow)
         );
         $db->query($sqlInsert, $insertRow);
 

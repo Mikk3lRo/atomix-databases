@@ -63,13 +63,6 @@ final class DbsTest extends TestCase
     }
 
 
-    public function testEmulatedSql()
-    {
-        $this->assertEquals(Dbs::get('mysql')->getEmulatedSql('SELECT * FROM `test` WHERE ?', 'string'), "SELECT * FROM `test` WHERE 'string';");
-        $this->assertEquals(Dbs::get('mysql')->getEmulatedSql('SELECT * FROM `test` WHERE a=? AND b=?', array(1, 'string in array')), "SELECT * FROM `test` WHERE a=1 AND b='string in array';");
-    }
-
-
     public function testQueryDebug()
     {
         Dbs::enableQueryLog();
