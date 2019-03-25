@@ -40,6 +40,10 @@ final class DbTest extends TestCase
 
         $this->assertEquals('`value`=?', $db->updateFieldsAndValues(array('value' => 'test')));
         $this->assertEquals('`key`=?, `value`=?', $db->updateFieldsAndValues(array('key' => 1, 'value' => 'test')));
+
+        $this->assertEquals('`value`=VALUES(`value`)', $db->onDuplicateUpdateFields(array('value' => 'test')));
+        $this->assertEquals('`key`=VALUES(`key`), `value`=VALUES(`value`)', $db->onDuplicateUpdateFields(array('key' => 1, 'value' => 'test')));
+        $this->assertEquals('`value`=VALUES(`value`)', $db->onDuplicateUpdateFields(array('key' => 1, 'value' => 'test'), 'key'));
     }
 
 

@@ -551,6 +551,28 @@ class Db implements LoggerAwareInterface
 
 
     /**
+     * Creates a string with fields and values ready to use in an "...ON DUPLICATE KEY" statement.
+     *
+     * Fx. "`field1`=VALUES(`field1`), `field2`=VALUES(`field2`)"
+     *
+     * @param array       $fieldsAndValues The values that will be used.
+     * @param string|null $excludeField    Field to skip - so we don't have to pass a separate array without the primary key for example (optional).
+     *
+     * @return string The escaped keys.
+     */
+    public function onDuplicateUpdateFields(array $fieldsAndValues, ?string $excludeField = null) : string
+    {
+        $updateFieldsArr = array();
+        foreach (array_keys($fieldsAndValues) as $field) {
+            if ($field !== $excludeField) {
+                $updateFieldsArr[] = "`$field`=VALUES(`$field`)";
+            }
+        }
+        return implode(', ', $updateFieldsArr);
+    }
+
+
+    /**
      * Replace each placeholder in stored statements with the correct value.
      *
      * This is ONLY FOR DEBUGGING PURPOSES!!!
