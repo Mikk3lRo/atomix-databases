@@ -2,12 +2,13 @@
 
 namespace Mikk3lRo\atomix\databases;
 
+use Exception;
 use PDO;
 use PDOException;
 use PDOStatement;
-use Exception;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use Psr\Log\NullLogger;
 
 class Db implements LoggerAwareInterface
 {
@@ -97,6 +98,10 @@ class Db implements LoggerAwareInterface
      */
     public function __construct(string $slug, string $dbName, string $username, string $password, string $hostName = 'localhost', int $hostPort = 3306, string $charset = 'utf8')
     {
+        if (!$this->logger) {
+            $this->logger = new NullLogger();
+        }
+
         $this->slug = $slug;
         $this->dbName = $dbName;
         $this->username = $username;
@@ -220,7 +225,7 @@ class Db implements LoggerAwareInterface
                 $this->pdo = $pdo;
             } catch (PDOException $e) {
                 //Log full details...
-                $this->logger && $this->logger->critical(
+                $this->logger->critical(
                     sprintf(
                         'Failed to connect to database "%s": %s',
                         $this->dbName,
@@ -304,7 +309,7 @@ class Db implements LoggerAwareInterface
                 'args' => $args
             );
 
-            $this->logger && $this->logger->debug(
+            $this->logger->debug(
                 sprintf(
                     'SQL query on "%s": %s',
                     $this->slug,
@@ -330,7 +335,7 @@ class Db implements LoggerAwareInterface
             );
 
             if ($isDisconnect && $maxReconnects > 0) {
-                $this->logger && $this->logger->warning(
+                $this->logger->warning(
                     sprintf(
                         'Connection lost on "%s" (will attempt to reconnect): %s',
                         $this->dbName,
