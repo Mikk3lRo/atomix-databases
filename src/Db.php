@@ -420,6 +420,23 @@ class Db implements LoggerAwareInterface
 
 
     /**
+     * Insert a row.
+     *
+     * @param string $sql             The basic insert statement - ie "INSERT INTO `xxx`"
+     * @param array  $fieldsAndValues Array of column => value pairs.
+     *
+     * @return PDOStatement
+     */
+    public function insert(string $sql, array $fieldsAndValues) : PDOStatement
+    {
+        $insertFields = DbHelpers::insertFields($fieldsAndValues);
+        $insertPlaceholders = DbHelpers::insertPlaceholders($fieldsAndValues);
+
+        return $this->query("$sql ($insertFields) VALUES ($insertPlaceholders)", $fieldsAndValues);
+    }
+
+
+    /**
      * Get the latest insert ID
      *
      * @return integer The last insert ID

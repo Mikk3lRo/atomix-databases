@@ -239,12 +239,8 @@ final class DbTest extends TestCase
         $insertRow = array(
             'value' => 'Second value'
         );
-        $sqlInsert = sprintf(
-            "INSERT INTO `phpunittesttesttable` (%s) VALUES (%s)",
-            DbHelpers::insertFields($insertRow),
-            DbHelpers::insertPlaceholders($insertRow)
-        );
-        $db->query($sqlInsert, $insertRow);
+        
+        $db->insert("INSERT INTO `phpunittesttesttable`", $insertRow);
 
         $insertedCount = $db->queryOneCell("SELECT COUNT(*) FROM `phpunittesttesttable`");
         $insertedKey = $db->getInsertId();
