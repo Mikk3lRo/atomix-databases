@@ -422,7 +422,7 @@ class Db implements LoggerAwareInterface
     /**
      * Insert a row.
      *
-     * @param string $sql             The basic insert statement - ie "INSERT INTO `xxx`"
+     * @param string $sql             The basic insert statement - ie "INSERT INTO `xxx`".
      * @param array  $fieldsAndValues Array of column => value pairs.
      *
      * @return PDOStatement
