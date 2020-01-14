@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 
 use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\databases\Dbs;
-use Mikk3lRo\atomix\io\OutputLogger;
+use Mikk3lRo\atomix\logger\OutputLogger;
 
 putenv('isUnitTest=1');
 
@@ -18,9 +18,20 @@ putenv('isUnitTest=1');
  */
 final class DbsTest extends TestCase
 {
+    private function getRootDb($id = 'mysql') : Db
+    {
+        if (getenv('GITHUB_MYSQLPORT')) {
+            $db = new Db($id, 'mysql', 'root', getenv('GITHUB_MYSQLPASS'), '127.0.0.1', intval(getenv('GITHUB_MYSQLPORT')));
+        } else {
+            $db = new Db($id, 'mysql', 'root', '');
+        }
+        return $db;
+    }
+
+
     public function testRegisterDatabase()
     {
-        $dbIn = new Db('mysql', 'mysql', 'root', '');
+        $dbIn = $this->getRootDb();
         Dbs::define($dbIn);
         $dbOut = Dbs::get('mysql');
         $this->assertTrue($dbIn === $dbOut);
@@ -31,7 +42,7 @@ final class DbsTest extends TestCase
     {
         Dbs::enableQueryLog();
 
-        $db2 = new Db('mysql2', 'mysql', 'root', '');
+        $db2 = $this->getRootDb('mysql2');
         $this->assertFalse($db2->isQueryLogEnabled());
         Dbs::define($db2);
         $this->assertTrue($db2->isQueryLogEnabled());
@@ -40,7 +51,7 @@ final class DbsTest extends TestCase
         Dbs::disableQueryLog();
         $this->assertFalse($db2->isQueryLogEnabled());
 
-        $db3 = new Db('mysql3', 'mysql', 'root', '');
+        $db3 = $this->getRootDb('mysql3');
         $this->assertFalse($db3->isQueryLogEnabled());
         Dbs::define($db3);
         $this->assertFalse($db3->isQueryLogEnabled());
@@ -58,7 +69,7 @@ final class DbsTest extends TestCase
     public function testThrowsOnReregisterDatabase()
     {
         $this->expectExceptionMessage('Already have a database defined for the slug');
-        $db3 = new Db('mysql3', 'mysql', 'root', '');
+        $db3 = $this->getRootDb('mysql3');
         Dbs::define($db3);
     }
 

@@ -5,7 +5,7 @@ namespace Mikk3lRo\atomix\Tests;
 use Exception;
 use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\databases\DbHelpers;
-use Mikk3lRo\atomix\io\OutputLogger;
+use Mikk3lRo\atomix\logger\OutputLogger;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
@@ -20,9 +20,20 @@ putenv('isUnitTest=1');
  */
 final class DbTest extends TestCase
 {
+    private function getRootDb() : Db
+    {
+        if (getenv('GITHUB_MYSQLPORT')) {
+            $db = new Db('mysql', 'mysql', 'root', getenv('GITHUB_MYSQLPASS'), '127.0.0.1', intval(getenv('GITHUB_MYSQLPORT')));
+        } else {
+            $db = new Db('mysql', 'mysql', 'root', '');
+        }
+        return $db;
+    }
+
+
     public function testCanConnectAndQuery()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
         $db->connect();
 
         foreach ($db->query("SELECT '123' as `abc`") as $row) {
@@ -35,7 +46,7 @@ final class DbTest extends TestCase
 
     public function testGetPdo()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
 
         $result = $db->getPdo();
 
@@ -45,7 +56,7 @@ final class DbTest extends TestCase
 
     public function testQueryOneRow()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
 
         $result = $db->queryOneRow("SELECT '123' as `abc`");
 
@@ -55,7 +66,7 @@ final class DbTest extends TestCase
 
     public function testQueryOneCell()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
 
         $result = $db->queryOneCell("SELECT '123' as `abc`");
 
@@ -65,7 +76,11 @@ final class DbTest extends TestCase
 
     public function testCanConnectOnPort()
     {
-        $db = new Db('mysql', 'mysql', 'root', '', '127.0.0.1', 3306);
+        if (getenv('GITHUB_MYSQLPORT')) {
+            $db = $this->getRootDb();
+        } else {
+            $db = new Db('mysql', 'mysql', 'root', '', '127.0.0.1', 3306);
+        }
         $db->connect();
 
         foreach ($db->query("SELECT '123' as `abc`") as $row) {
@@ -98,7 +113,7 @@ final class DbTest extends TestCase
 
     public function testCanUseArgsArray()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
 
         foreach ($db->query("SELECT ? as `a`, ? as `b`", array(1, 'two')) as $row) {
             $result = $row;
@@ -110,7 +125,7 @@ final class DbTest extends TestCase
 
     public function testCanUseArgsString()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
 
         foreach ($db->query("SELECT ? as `a`", 'three') as $row) {
             $result = $row;
@@ -122,7 +137,7 @@ final class DbTest extends TestCase
 
     public function testQueryLog()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
         $db->enableQueryLog();
 
         $this->assertEquals(array(), $db->getQueryLogArray(false, false));
@@ -135,7 +150,7 @@ final class DbTest extends TestCase
 
     public function testCanLogQuery()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
         $db->enableQueryLog();
         $logger = new OutputLogger();
         $logger->setMaxLogLevel(LogLevel::DEBUG);
@@ -148,7 +163,7 @@ final class DbTest extends TestCase
 
     public function testInvalidSql()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
         $this->expectExceptionMessage('You have an error in your SQL syntax');
         $db->query("this is not SQL", 'three');
     }
@@ -162,7 +177,7 @@ final class DbTest extends TestCase
             return;
         }
 
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
         $db->setLogger(new OutputLogger);
 
         $db->connect();
@@ -181,7 +196,7 @@ final class DbTest extends TestCase
 
     private function createTestDb()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
         $db->query("CREATE DATABASE IF NOT EXISTS `phpunittesttestdb`");
         $db->query("CREATE TABLE IF NOT EXISTS `phpunittesttestdb`.`phpunittesttesttable`
                       (
@@ -218,7 +233,7 @@ final class DbTest extends TestCase
 
     private function deleteTestDb()
     {
-        $db = new Db('mysql', 'mysql', 'root', '');
+        $db = $this->getRootDb();
         foreach (array('localhost', '127.0.0.1') as $allowedHost) {
             $db->query("DROP USER ?@?", array(
                 'phpunittesttestuser',
@@ -239,7 +254,7 @@ final class DbTest extends TestCase
         $insertRow = array(
             'value' => 'Second value'
         );
-        
+
         $db->insert("INSERT INTO `phpunittesttesttable`", $insertRow);
 
         $insertedCount = $db->queryOneCell("SELECT COUNT(*) FROM `phpunittesttesttable`");
@@ -264,7 +279,7 @@ final class DbTest extends TestCase
 
         $db->export('/tmp/phpunittestexport.sql');
 
-        $this->assertContains('CREATE TABLE `phpunittesttesttable`', file_get_contents('/tmp/phpunittestexport.sql'));
+        $this->assertStringContainsString('CREATE TABLE `phpunittesttesttable`', file_get_contents('/tmp/phpunittestexport.sql'));
         $this->deleteTestDb();
     }
 
@@ -297,7 +312,7 @@ final class DbTest extends TestCase
 
         $db->export('/tmp/phpunittestexportfromport.sql');
 
-        $this->assertContains('CREATE TABLE `phpunittesttesttable`', file_get_contents('/tmp/phpunittestexport.sql'));
+        $this->assertStringContainsString('CREATE TABLE `phpunittesttesttable`', file_get_contents('/tmp/phpunittestexport.sql'));
 
         if (file_exists('/tmp/phpunittestexportfromport.sql')) {
             unlink('/tmp/phpunittestexportfromport.sql');

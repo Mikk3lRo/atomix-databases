@@ -1,0 +1,53 @@
+name: PHP Composer
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:latest
+        ports:
+          - 3306
+        env:
+          MYSQL_USER: user
+          MYSQL_PASSWORD: password
+          MYSQL_DATABASE: test
+          MYSQL_ROOT_PASSWORD: password
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v1
+    
+    - name: Validate composer.json and composer.lock
+      run: composer validate
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress --no-suggest
+
+    - name: Verify MariaDB connection and run test suite
+      env:
+        GITHUB_MYSQLPORT: ${{ job.services.mariadb.ports[3306] }}
+        GITHUB_MYSQLPASS: password
+      run: |
+        while ! mysqladmin ping -h"127.0.0.1" -P"$GITHUB_MYSQLPORT" --silent; do
+          sleep 1
+        done
+        composer run-script test
+
+    - name: Run code sniffs
+      run: composer run-script cs
+
+    - name: Run test suite code sniffs
+      run: composer run-script cstests
+
+    - uses: actions/checkout@master
+    - name: Bump version and push tag
+      uses: anothrNick/github-tag-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        WITH_V: true
+        DEFAULT_BUMP: patch
