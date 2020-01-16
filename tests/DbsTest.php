@@ -1,14 +1,13 @@
 <?php declare(strict_types = 1);
 
-namespace Mikk3lRo\atomix\Tests;
+namespace Mikk3lRo\Tests;
 
+use Mikk3lRo\atomix\databases\Dbs;
+use Mikk3lRo\Tests\DatabaseHelpers;
 use PHPUnit\Framework\TestCase;
 
-use Mikk3lRo\atomix\databases\Db;
-use Mikk3lRo\atomix\databases\Dbs;
-use Mikk3lRo\atomix\io\OutputLogger;
+require_once __DIR__ . '/DatabaseHelpers.php';
 
-putenv('isUnitTest=1');
 
 /**
  * @covers Mikk3lRo\atomix\databases\Dbs
@@ -20,7 +19,7 @@ final class DbsTest extends TestCase
 {
     public function testRegisterDatabase()
     {
-        $dbIn = new Db('mysql', 'mysql', 'root', '');
+        $dbIn = DatabaseHelpers::getRootDb();
         Dbs::define($dbIn);
         $dbOut = Dbs::get('mysql');
         $this->assertTrue($dbIn === $dbOut);
@@ -31,7 +30,7 @@ final class DbsTest extends TestCase
     {
         Dbs::enableQueryLog();
 
-        $db2 = new Db('mysql2', 'mysql', 'root', '');
+        $db2 = DatabaseHelpers::getRootDb('mysql2');
         $this->assertFalse($db2->isQueryLogEnabled());
         Dbs::define($db2);
         $this->assertTrue($db2->isQueryLogEnabled());
@@ -40,7 +39,7 @@ final class DbsTest extends TestCase
         Dbs::disableQueryLog();
         $this->assertFalse($db2->isQueryLogEnabled());
 
-        $db3 = new Db('mysql3', 'mysql', 'root', '');
+        $db3 = DatabaseHelpers::getRootDb('mysql3');
         $this->assertFalse($db3->isQueryLogEnabled());
         Dbs::define($db3);
         $this->assertFalse($db3->isQueryLogEnabled());
@@ -58,7 +57,7 @@ final class DbsTest extends TestCase
     public function testThrowsOnReregisterDatabase()
     {
         $this->expectExceptionMessage('Already have a database defined for the slug');
-        $db3 = new Db('mysql3', 'mysql', 'root', '');
+        $db3 = DatabaseHelpers::getRootDb('mysql3');
         Dbs::define($db3);
     }
 
