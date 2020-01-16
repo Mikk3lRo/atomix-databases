@@ -1,16 +1,14 @@
 <?php
 chdir(__DIR__);
-succeed_or_die('chmod +x vendor/bin/phpunit vendor/phpunit/phpunit/phpunit');
-succeed_or_die('chmod +x vendor/bin/phpcs vendor/squizlabs/php_codesniffer/bin/phpcs vendor/bin/phpcbf vendor/squizlabs/php_codesniffer/bin/phpcbf');
 
 echo "******** UNIT TESTS ********\n";
-succeed_or_die('vendor/bin/phpunit');
+succeed_or_die(PHP_BINARY . ' vendor/phpunit/phpunit/phpunit');
 
 echo "******** CODE SNIFF (src) ********\n";
-succeed_or_die('vendor/bin/phpcs -s');
+succeed_or_die(PHP_BINARY . ' vendor/squizlabs/php_codesniffer/bin/phpcs -s');
 
 echo "******** CODE SNIFF (tests) ********\n";
-succeed_or_die('vendor/bin/phpcs -s --standard=phpcsTests.xml');
+succeed_or_die(PHP_BINARY . ' vendor/squizlabs/php_codesniffer/bin/phpcs -s --standard=phpcsTests.xml');
 
 echo "******** ALL TESTS SUCCEEDED ********\n";
 exit(0);
