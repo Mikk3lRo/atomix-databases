@@ -30,10 +30,12 @@ jobs:
 
     - name: Verify MariaDB connection and run test suite
       env:
-        GITHUB_MYSQLPORT: ${{ job.services.mariadb.ports[3306] }}
-        GITHUB_MYSQLPASS: password
+        MYSQLPORT: ${{ job.services.mariadb.ports[3306] }}
+        MYSQLHOST: 127.0.0.1
+        MYSQLPASS: password
+        IS_GITHUB: 1
       run: |
-        while ! mysqladmin ping -h"127.0.0.1" -P"$GITHUB_MYSQLPORT" --silent; do
+        while ! mysqladmin ping -h"$MYSQLHOST" -P"$MYSQLPORT" --silent; do
           sleep 1
         done
         composer run-script test

@@ -2,14 +2,24 @@
 
 namespace Mikk3lRo\atomix\Tests;
 
-use PHPUnit\Framework\TestCase;
-
 use Exception;
-use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\databases\DbAdmin;
 use Mikk3lRo\atomix\logger\OutputLogger;
+use Mikk3lRo\Tests\DatabaseHelpers;
+use PHPUnit\Framework\TestCase;
+use function count;
 
 putenv('isUnitTest=1');
+
+if (!getenv('MYSQLPORT')) {
+    putenv('MYSQLPORT=3306');
+}
+if (!getenv('MYSQLHOST')) {
+    putenv('MYSQLHOST=localhost');
+}
+if (!getenv('MYSQLPASS')) {
+    putenv('MYSQLPASS=');
+}
 
 /**
  * @covers Mikk3lRo\atomix\databases\DbAdmin
@@ -19,22 +29,21 @@ putenv('isUnitTest=1');
  */
 final class DbAdminTest extends TestCase
 {
-    private function getRootDb() : Db
+    public static function tearDownAfterClass() : void
     {
-        if (getenv('GITHUB_MYSQLPORT')) {
-            $db = new Db('mysql', 'mysql', 'root', getenv('GITHUB_MYSQLPASS'), '127.0.0.1', intval(getenv('GITHUB_MYSQLPORT')));
-        } else {
-            $db = new Db('mysql', 'mysql', 'root', '');
-        }
-        return $db;
+        DatabaseHelpers::cleanTestUserAndDb();
+    }
+
+
+    public static function setUpBeforeClass() : void
+    {
+        DatabaseHelpers::cleanTestUserAndDb();
     }
 
 
     public function testCreateDatabase()
     {
-        $db = $this->getRootDb();
-
-        $db->query('DROP DATABASE IF EXISTS `phpunittesttestdb`');
+        $db = DatabaseHelpers::getRootDb();
 
         $rowsPre = $db->queryAllRows("SHOW DATABASES LIKE 'phpunittesttestdb'");
         $preCount = count($rowsPre);
@@ -55,10 +64,9 @@ final class DbAdminTest extends TestCase
      */
     public function testCreateUser()
     {
-        $db = $this->getRootDb();
+        DatabaseHelpers::cleanTestUserAndDb();
 
-        $db->query("DROP USER IF EXISTS 'phpunittesttestuser'@'localhost'");
-        $db->query("DROP USER IF EXISTS 'phpunittesttestuser'@'127.0.0.1'");
+        $db = DatabaseHelpers::getRootDb();
 
         $preCount = $db->queryOneCell("SELECT COUNT(*) FROM `user` WHERE `User`='phpunittesttestuser'");
 
@@ -77,10 +85,16 @@ final class DbAdminTest extends TestCase
      */
     public function testGrantUser()
     {
+        DatabaseHelpers::cleanTestUserAndDb();
+        $db = DatabaseHelpers::getRootDb();
+        $dbAdmin = new DbAdmin($db);
+        $dbAdmin->createDatabase('phpunittesttestdb');
+        $dbAdmin->createUser('phpunittesttestuser', 'phpunittesttestpass', ['localhost', '%']);
+
         //Still shouldn't have access to the database
         $exceptionMsgPre = '';
         try {
-            $dbPre = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
+            $dbPre = DatabaseHelpers::getTestDb();
             $dbPre->setLogger(new OutputLogger);
             ob_start();
             $dbPre->queryOneCell("SHOW TABLES IN `phpunittesttestdb`");
@@ -93,22 +107,20 @@ final class DbAdminTest extends TestCase
         $this->assertStringContainsString('Access denied for user', $outputPre);
 
 
-        $db = $this->getRootDb();
         $db->setLogger(new OutputLogger);
 
         $this->expectOutputString('');
         $this->assertEquals(1, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'localhost'")));
-        $dbAdmin = new DbAdmin($db);
         $dbAdmin->grantAccessToDbs('phpunittesttestuser', 'phpunittesttestdb');
         $dbAdmin->grantAccessToDbs('phpunittesttestuser', 'phpunittest\_%', array('SELECT', 'INSERT'));
 
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'localhost'")));
-        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
+        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'%'")));
 
         //Should now have access to the database
         $exceptionMsgPost = '';
         try {
-            $dbPost = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
+            $dbPost = DatabaseHelpers::getTestDb();
             $dbPost->setLogger(new OutputLogger);
             ob_start();
             $dbPost->queryOneCell("SHOW TABLES IN `phpunittesttestdb`");
@@ -127,11 +139,11 @@ final class DbAdminTest extends TestCase
      */
     public function testSetPassword()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $prePassword = $db->queryOneCell("SELECT Password FROM `user` WHERE `User`='phpunittesttestuser' LIMIT 1");
 
-        $dbPre = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
+        $dbPre = DatabaseHelpers::getTestDb();
         $preSuccess = true;
         try {
             $dbPre->connect();
@@ -146,7 +158,7 @@ final class DbAdminTest extends TestCase
 
         $this->assertNotEquals($prePassword, $postPassword);
 
-        $dbPost = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass2');
+        $dbPost = DatabaseHelpers::getTestDb(null, null, null, 'phpunittesttestpass2');
         $postSuccess = true;
         try {
             $dbPost->connect();
@@ -167,7 +179,7 @@ final class DbAdminTest extends TestCase
      */
     public function testRemoveAllowedHost()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $preCount = $db->queryOneCell("SELECT COUNT(*) FROM `user` WHERE `User`='phpunittesttestuser'");
 
@@ -178,7 +190,7 @@ final class DbAdminTest extends TestCase
 
         $this->assertEquals(2, $preCount);
         $this->assertEquals(1, $postCount);
-        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
+        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'%'")));
     }
 
 
@@ -187,7 +199,7 @@ final class DbAdminTest extends TestCase
      */
     public function testRemoveAllowedHostThatIsNotAllowed()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $preCount = $db->queryOneCell("SELECT COUNT(*) FROM `user` WHERE `User`='phpunittesttestuser'");
 
@@ -198,7 +210,7 @@ final class DbAdminTest extends TestCase
 
         $this->assertEquals(1, $preCount);
         $this->assertEquals(1, $postCount);
-        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
+        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'%'")));
     }
 
 
@@ -207,7 +219,7 @@ final class DbAdminTest extends TestCase
      */
     public function testAddAllowedHost()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $preCount = $db->queryOneCell("SELECT COUNT(*) FROM `user` WHERE `User`='phpunittesttestuser'");
 
@@ -219,7 +231,7 @@ final class DbAdminTest extends TestCase
         $this->assertEquals(1, $preCount);
         $this->assertEquals(2, $postCount);
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'localhost'")));
-        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
+        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'%'")));
     }
 
 
@@ -228,7 +240,7 @@ final class DbAdminTest extends TestCase
      */
     public function testAddAllowedHostThatExists()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $preCount = $db->queryOneCell("SELECT COUNT(*) FROM `user` WHERE `User`='phpunittesttestuser'");
 
@@ -240,7 +252,7 @@ final class DbAdminTest extends TestCase
         $this->assertEquals(2, $preCount);
         $this->assertEquals(2, $postCount);
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'localhost'")));
-        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
+        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'%'")));
     }
 
 
@@ -252,7 +264,7 @@ final class DbAdminTest extends TestCase
         //Shouldn't be able to create a database
         $exceptionMsgPre = '';
         try {
-            $dbPre = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
+            $dbPre = DatabaseHelpers::getTestDb();
             $dbPre->setLogger(new OutputLogger);
             ob_start();
             $dbPre->query("CREATE DATABASE IF NOT EXISTS `phpunittesttestdb2`");
@@ -265,20 +277,20 @@ final class DbAdminTest extends TestCase
         $this->assertEquals('', $outputPre);
 
 
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
         $db->setLogger(new OutputLogger);
         $dbAdmin = new DbAdmin($db);
 
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'localhost'")));
-        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
+        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'%'")));
         $dbAdmin->grantSuperuserAccess('phpunittesttestuser');
         $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'localhost'")));
-        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'127.0.0.1'")));
+        $this->assertEquals(3, count($db->queryAllRows("SHOW GRANTS FOR 'phpunittesttestuser'@'%'")));
 
         //Should now have access to create a database
         $exceptionMsgPost = '';
         try {
-            $dbPost = new Db('phpunittesttestdb', 'phpunittesttestdb', 'phpunittesttestuser', 'phpunittesttestpass');
+            $dbPost = DatabaseHelpers::getTestDb();
             $dbPost->setLogger(new OutputLogger);
             ob_start();
             $dbPost->query("CREATE DATABASE IF NOT EXISTS `phpunittesttestdb2`");
@@ -299,7 +311,7 @@ final class DbAdminTest extends TestCase
      */
     public function testDropUser()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $preCount = $db->queryOneCell("SELECT COUNT(*) FROM `user` WHERE `User`='phpunittesttestuser'");
 
@@ -318,7 +330,7 @@ final class DbAdminTest extends TestCase
      */
     public function testDropDatabase()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $rowsPre = $db->queryAllRows("SHOW DATABASES LIKE 'phpunittesttestdb'");
         $preCount = count($rowsPre);
@@ -336,7 +348,7 @@ final class DbAdminTest extends TestCase
 
     public function testGetCreateThrowsOnNonexistingUser()
     {
-        $db = $this->getRootDb();
+        $db = DatabaseHelpers::getRootDb();
 
         $dbAdmin = new DbAdmin($db);
         $this->expectExceptionMessage('Could not get CREATE USER');
