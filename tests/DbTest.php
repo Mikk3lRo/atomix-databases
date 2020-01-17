@@ -8,6 +8,8 @@ use Mikk3lRo\atomix\logger\OutputLogger;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use SetGmtOnConnect;
+use SetGmtPlusOneOnConnect;
 use function count;
 
 require_once __DIR__ . '/DatabaseHelpers.php';
@@ -296,5 +298,21 @@ final class DbTest extends TestCase
 
         $this->expectExceptionMessage('file does not exist or is empty');
         $db->import('/tmp/nonexistingfilename.sql');
+    }
+
+
+    public function testCanDostuffPostConnect()
+    {
+        $gmt = DatabaseHelpers::getRootDb(null, null, null, null, null, null, SetGmtOnConnect::class);
+        $gmtPlusOne = DatabaseHelpers::getRootDb(null, null, null, null, null, null, SetGmtPlusOneOnConnect::class);
+
+        //die('wtf');
+
+        echo $gmt->queryOneCell("SELECT DATE('H:i')");
+
+        $this->assertEquals(
+            $gmt->queryOneCell("SELECT DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 1 HOUR), '%H:%i')"),
+            $gmtPlusOne->queryOneCell("SELECT DATE_FORMAT(NOW(), '%H:%i')")
+        );
     }
 }

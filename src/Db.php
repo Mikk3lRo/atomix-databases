@@ -223,6 +223,7 @@ class Db implements LoggerAwareInterface
                 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                 $this->pdo = $pdo;
+                $this->postConnect();
             } catch (PDOException $e) {
                 //Log full details...
                 $this->logger->critical(
@@ -245,6 +246,19 @@ class Db implements LoggerAwareInterface
                 );
             }
         }
+    }
+
+
+    /**
+     * Override this function to do some initial setup on the connection after each connect.
+     *
+     * Useful fx. to set the timezone or other options.
+     *
+     * @return void
+     */
+    protected function postConnect() : void
+    {
+        // Default does nothing.
     }
 
 

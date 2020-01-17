@@ -5,6 +5,9 @@ namespace Mikk3lRo\Tests;
 use Mikk3lRo\atomix\databases\Db;
 use Mikk3lRo\atomix\databases\DbHelpers;
 
+require_once __DIR__ . '/../TestOnlyClasses/SetGmtOnConnect.php';
+require_once __DIR__ . '/../TestOnlyClasses/SetGmtPlusOneOnConnect.php';
+
 putenv('isUnitTest=1');
 
 if (!getenv('MYSQLPORT')) {
@@ -19,9 +22,12 @@ if (!getenv('MYSQLPASS')) {
 
 class DatabaseHelpers
 {
-    public function getRootDb($id = null, $name = null, $user = null, $pass = null, $host = null, $port = null) : Db
+    public function getRootDb($id = null, $name = null, $user = null, $pass = null, $host = null, $port = null, $class = null) : Db
     {
-        return new Db(
+        if ($class === null) {
+            $class = Db::class;
+        }
+        return new $class(
             $id === null ? 'mysql' : $id,
             $name === null ? 'mysql' : $name,
             $user === null ? 'root' : $user,
@@ -32,9 +38,12 @@ class DatabaseHelpers
     }
 
 
-    public function getTestDb($id = null, $name = null, $user = null, $pass = null, $host = null, $port = null) : Db
+    public function getTestDb($id = null, $name = null, $user = null, $pass = null, $host = null, $port = null, $class = null) : Db
     {
-        return new Db(
+        if ($class === null) {
+            $class = Db::class;
+        }
+        return new $class(
             $id === null ? 'phpunittesttestdb' : $id,
             $name === null ? 'phpunittesttestdb' : $name,
             $user === null ? 'phpunittesttestuser' : $user,
