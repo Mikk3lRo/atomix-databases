@@ -218,7 +218,7 @@ class DbAdmin
         if (isset($allowedHost)) {
             foreach ($this->db->query("SHOW CREATE USER ?@?", array($username, $allowedHost)) as $createUserRow) {
                 $oldCreateUserSql = reset($createUserRow);
-                if (preg_match("#^(CREATE USER )'$username'@'$allowedHost'(.*)$#", $oldCreateUserSql, $matches)) {
+                if (preg_match("#^(CREATE USER ).$username.@.$allowedHost.(.*)$#", $oldCreateUserSql, $matches)) {
                     $createUserSql = $matches[1] . '?@?' . $matches[2];
                 }
             }
