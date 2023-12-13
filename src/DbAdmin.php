@@ -189,7 +189,7 @@ class DbAdmin
         $retval = array();
 
         foreach ($grants as $grant) {
-            if (preg_match("#^(GRANT .* TO )'$username'@'$allowedHost'(.*)$#", $grant, $matches)) {
+            if (preg_match("#^(GRANT .* TO ).$username.@.$allowedHost.(.*)$#", $grant, $matches)) {
                 $retval[] = $matches[1] . '?@?' . $matches[2];
             }
         }
