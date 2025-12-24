@@ -101,6 +101,14 @@ class DbHelpers
         foreach ($args as $arg) {
             if (is_string($arg)) {
                 $arg = "'" . str_replace("'", "\\'", $arg) . "'";
+            } else if ($arg === null) {
+                $arg = 'NULL';
+            } else if ($arg === false) {
+                $arg = 'FALSE';
+            } else if ($arg === true) {
+                $arg = 'TRUE';
+            } else if (is_int($arg) || is_float($arg)) {
+                $arg = (string)$arg;
             }
             $pos = strpos($sql, '?');
             if ($pos !== false) {
